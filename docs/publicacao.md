@@ -72,6 +72,12 @@ O formulário pede uma frase por permissão. Estas respondem ao que é perguntad
 Essa última costuma ser a pergunta do revisor. Vale responder antes de ser
 perguntado.
 
+**`web_accessible_resources` com `*://*/*`**
+> O padrão desse campo aceita apenas esquema e host; o caminho tem de ser
+> `/*`, por exigência do próprio Chrome. Não é possível restringi-lo ao
+> caminho do SEI. Os arquivos expostos são apenas os módulos da própria
+> extensão, sem dado nenhum.
+
 ## Declaração de uso de dados
 
 No formulário "Privacy practices", marque:
