@@ -5,7 +5,17 @@
  * instalada em outro orgao, este e o unico arquivo que precisa mudar.
  *
  * Validado contra: leste.sei.rj.gov.br (Niteroi/RJ), SEI 5.0.4.
- * Marcadores CONFIRMAR: ainda nao vistos no HTML real.
+ *
+ * Ha duas formas de confirmacao, e a diferenca importa:
+ *
+ *   CONFIRMADO no HTML   alguem capturou a tela e os seletores foram
+ *                        conferidos contra ela;
+ *   CONFIRMADO em uso    a captura funcionou de verdade e o registro
+ *                        apareceu no historico. Vale tanto quanto, e as
+ *                        vezes mais - prova o caminho inteiro, nao so o
+ *                        seletor.
+ *
+ * CONFIRMAR marca o que ainda nao teve nenhuma das duas.
  *
  * Nenhuma lista de botao traz seletor generico como button[type="submit"].
  * A captura escuta o documento inteiro e decide no clique (ver armarCaptura),
@@ -40,10 +50,15 @@ export const ASSINATURA = {
   /**
    * Os documentos que serao assinados nesta tela.
    *
-   * CONFIRMADO: e um campo oculto, e o nome esta no PLURAL. Assinar pelo
-   * bloco manda varios documentos de uma vez, e a URL nao traz nenhum
+   * CONFIRMADO no HTML: e um campo oculto, e o nome esta no PLURAL. Assinar
+   * pelo bloco manda varios documentos de uma vez, e a URL nao traz nenhum
    * id_documento - so a arvore traz. Enquanto a captura dependia da URL,
    * assinatura por bloco nao entrava no historico.
+   *
+   * CONFIRMAR: so vi este campo com UM documento. Se numa assinatura em
+   * lote ele trouxer id de protocolo em vez de id de documento, cada
+   * assinatura viraria dois registros - um da captura e outro da varredura,
+   * com chaves diferentes. O sintoma seria duplicata no painel.
    */
   idsDocumentos: ['#hdnIdDocumentos', 'input[name="hdnIdDocumentos"]'],
 
@@ -354,8 +369,9 @@ export function processosParaEnviar(valorDoCampo, textosDasOpcoes) {
  * assinaturas: a fonte retroativa e autoritativa. Cada linha traz data/hora,
  * unidade, usuario e a descricao do que aconteceu.
  *
- * CONFIRMAR: os textos abaixo sao os padroes do SEI, mas ainda nao foram
- * conferidos contra a tela deste orgao.
+ * CONFIRMADO em uso: abrir "Consultar Andamento" num processo trouxe
+ * envios e criacoes para o historico. Nunca vi o HTML desta tela, mas o
+ * caminho inteiro funcionou - que e a prova que interessa.
  */
 export const ANDAMENTO = {
   // Basta um destes aparecer para valer a pena varrer a tela.
@@ -365,9 +381,9 @@ export const ANDAMENTO = {
    * Cada padrao vira um tipo de evento. Adicionar um novo tipo ao historico e,
    * na maior parte das vezes, so acrescentar uma linha aqui.
    *
-   * CONFIRMAR: os textos de criacao ("gerado") ainda nao foram vistos no HTML
-   * deste orgao - so os de tramitacao. Se a aba "Criados" vier vazia, e aqui
-   * que se ajusta.
+   * CONFIRMADO em uso: tanto os textos de tramitacao quanto os de criacao
+   * produziram registro a partir do andamento real. Se a aba "Criados"
+   * vier vazia em outro orgao, e aqui que se ajusta.
    */
   padroes: {
     remetido: /Processo remetido pela unidade\s+([A-Z0-9][A-Z0-9/._-]{1,60})/i,
@@ -402,8 +418,10 @@ export const ANDAMENTO = {
 
 /** Tela "Iniciar Processo" (acao=procedimento_gerar). */
 export const CRIACAO_PROCESSO = {
-  // CONFIRMAR: nao vistos no HTML real deste orgao.
-  // Visto no SEI 5.0.4: <form id="frmProcedimentoCadastro"> - o id, nao o name.
+  // CONFIRMADO em uso: criar um processo registrou "criacao de processo"
+  // no historico, com o NUP certo.
+  // No SEI 5.0.4 o formulario e <form id="frmProcedimentoCadastro"> - o id,
+  // e nao o name.
   formulario: [
     '#frmProcedimentoCadastro',
     'form[name*="frmProcedimentoCadastro" i]',

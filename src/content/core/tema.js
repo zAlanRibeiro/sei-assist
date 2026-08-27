@@ -35,9 +35,9 @@ import {
 /**
  * Onde procurar cada cor na tela do SEI.
  *
- * CONFIRMAR: os ids abaixo sao os do SEI 4 e 5. Nao dependem de nenhum tema
- * especifico, mas um orgao pode ter mexido no esqueleto. Se nao acharmos
- * nada, o padrao gov.br assume - degrada em silencio, nunca quebra.
+ * CONFIRMADO no HTML: <div id="divInfraBarraSistema"> existe no SEI 5.0.4.
+ * Os demais candidatos sao de outras versoes e servem de rede. Se nenhum
+ * casar, o padrao gov.br assume - degrada em silencio, nunca quebra.
  */
 const FONTES = {
   /**
