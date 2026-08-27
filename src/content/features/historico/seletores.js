@@ -280,36 +280,71 @@ export function paramDaUrl(url, nome) {
 
 /* ------------------------------------------------------ envio de processo */
 
-/** Tela "Enviar Processo" (acao=procedimento_enviar). */
+/**
+ * Tela "Enviar Processo" (acao=procedimento_enviar).
+ *
+ * CONFIRMADO no SEI 5.0.4. Duas coisas que eu tinha errado e que so o HTML
+ * real mostrou:
+ *
+ *  1. o formulario e `frmAtividadeListar`, e nao `frmProcedimentoEnviar`.
+ *     Como a lista de formularios nao usa curinga, formularioDaTela()
+ *     devolvia null e os ouvintes de submit e de Enter nunca eram ligados.
+ *     So o clique funcionava - por acaso, porque o botao e type="submit".
+ *
+ *  2. o envio leva VARIOS processos. O campo oculto esta no plural e a
+ *     lista de cima mostra todos. Registrar um evento so perderia os
+ *     demais, exatamente como acontecia na assinatura em bloco.
+ */
 export const ENVIO = {
-  // CONFIRMAR: nenhum destes foi visto no HTML real do orgao.
-  formulario: [
-    'form[name*="frmProcedimentoEnviar" i]',
-    'form[action*="procedimento_enviar"]',
-  ],
+  formulario: ['#frmAtividadeListar', 'form[action*="procedimento_enviar"]'],
 
-  botaoConfirmar: ['#btnEnviar', 'button[name="btnEnviar"]', '#sbmEnviar'],
+  // O botao e type="submit"; #sbmEnviar era o terceiro candidato da lista
+  // antiga e o unico que acertava.
+  botaoConfirmar: ['#sbmEnviar', 'button[name="sbmEnviar"]', '#btnEnviar'],
 
   rotulosConfirmar: ['enviar'],
 
-  /**
-   * Unidades de destino. No SEI voce vai somando unidades a uma lista, entao
-   * o que interessa sao as opcoes JA escolhidas, nao o campo de busca.
-   */
-  unidadesDestino: [
-    'select[name*="Unidades" i] option',
-    '#selUnidades option',
-    'select[id*="Unidade" i] option',
-  ],
+  /** Os processos que serao enviados, como a pessoa os ve na tela. */
+  processos: ['#selProcedimentos option', 'select[name="selProcedimentos"] option'],
 
-  // "Manter processo aberto na unidade atual"
-  manterAberto: [
-    'input[type="checkbox"][name*="ManterAberto" i]',
-    '#chkSinManterAberto',
-    'input[type="checkbox"][id*="Manter" i]',
-  ],
+  /** Os mesmos processos, por id interno. */
+  idsProtocolos: ['#hdnIdProtocolos', 'input[name="hdnIdProtocolos"]'],
+
+  /**
+   * Unidades de destino ja escolhidas.
+   *
+   * A lista vem vazia e o SEI vai somando as unidades conforme a pessoa
+   * escolhe - por isso o que interessa sao as opcoes presentes, nao o campo
+   * de busca ao lado.
+   */
+  unidadesDestino: ['#selUnidades option', 'select[name="selUnidades"] option'],
+
+  /** "Manter processo aberto na unidade atual" */
+  manterAberto: ['#chkSinManterAberto', 'input[name="chkSinManterAberto"]'],
 };
 
+/**
+ * Os processos que esta tela vai enviar.
+ *
+ * Devolve [{ id, processo }]. Recebe o valor cru do campo oculto e os textos
+ * das opcoes da lista, e nao vai ao DOM: assim da para testar a regra sem
+ * navegador.
+ */
+export function processosParaEnviar(valorDoCampo, textosDasOpcoes) {
+  const ids = String(valorDoCampo || '').match(/\d+/g) || [];
+  const nups = (textosDasOpcoes || []).map((t) => acharNup(t)).filter(Boolean);
+
+  // Contagens iguais: casa por posicao. O SEI monta a lista visivel e o campo
+  // oculto na mesma ordem.
+  if (ids.length && ids.length === nups.length) {
+    return ids.map((id, i) => ({ id, processo: nups[i] }));
+  }
+
+  // Contagens diferentes: o NUP e o que a pessoa reconhece no historico,
+  // entao ele manda. Sem NUP nenhum, resta o id.
+  if (nups.length) return nups.map((processo) => ({ id: null, processo }));
+  return ids.map((id) => ({ id, processo: null }));
+}
 /* ---------------------------------------------------------- andamento */
 
 /**
