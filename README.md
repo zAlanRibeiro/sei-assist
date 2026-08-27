@@ -7,6 +7,42 @@ Informações**.
 A extensão atua por *content script*: injeta JS/CSS nas telas do SEI, já que o
 sistema não expõe API para esse tipo de personalização.
 
+Funciona em qualquer instalação do SEI — cada órgão hospeda o sistema no
+próprio domínio, e a extensão reconhece o padrão, não um endereço fixo.
+
+## O que ela faz
+
+- **Histórico do que você assinou, enviou e criou.** Painel no Controle de
+  Processos, com busca, filtro por período, distinção entre o que foi assinado
+  pelo bloco e pela árvore do processo, e exportação para CSV.
+- **Alerta de bloco de assinatura.** Avisa quando entra bloco novo na sua
+  unidade, com contador no ícone, tarja na página e marcador no menu.
+- **Rascunho no editor.** Recupera o texto quando a sessão do SEI expira no
+  meio da redação — a perda mais cara do dia a dia.
+- **Data por extenso.** Um botão na barra do editor escreve o fecho no cursor.
+- **Cópia do número do processo.** Um "C" ao lado de cada NUP na tela.
+- **Tema herdado do SEI.** O painel veste as cores do seu órgão, inclusive no
+  modo escuro.
+
+## O que ela não faz
+
+**Não assina, não envia, não tramita, não conclui e não exclui nada.** Essa é a
+restrição central do projeto, não um detalhe: existe uma trava explícita em
+[`core/guard.js`](src/content/core/guard.js) que bloqueia clique automático em
+qualquer botão crítico, e um teste que a verifica.
+
+**Nada sai da sua máquina.** Não há servidor, telemetria nem conta de usuário.
+O histórico fica em `chrome.storage.local`, que não sincroniza. A extensão faz
+uma única espécie de requisição — um `GET` de mesma origem ao seu próprio SEI,
+para consultar o bloco de assinatura — e não pede `host_permissions`.
+
+Essas garantias não são só promessa de texto: estão escritas como teste
+executável em [`testes/privacidade.test.mjs`](testes/privacidade.test.mjs). A
+suíte reprova se alguém abrir uma saída de rede nova, ler o campo de senha,
+guardar URL do SEI ou pedir permissão a mais.
+
+Detalhes em [`docs/privacidade.md`](docs/privacidade.md).
+
 ---
 
 ## Instalação (modo desenvolvedor)
