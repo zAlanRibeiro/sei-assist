@@ -1,0 +1,13 @@
+{
+  "name": "sei-assist",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Scripts de desenvolvimento da extensao. O Chrome ignora este arquivo.",
+  "scripts": {
+    "test": "node --test testes/*.test.mjs",
+    "validar": "node testes/validar.mjs",
+    "check": "npm run validar && npm test",
+    "empacotar": "npm run check && node testes/empacotar.mjs"
+  }
+}
