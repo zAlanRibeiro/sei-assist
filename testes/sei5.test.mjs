@@ -233,3 +233,67 @@ test('a lista de formulários não usa mais o curinga "form"', () => {
   // frmProtocoloPesquisaRapida que toda tela do SEI carrega no cabeçalho.
   assert.ok(!ASSINATURA.formulario.includes('form'));
 });
+
+/* ---------------------------- envio de processo (HTML real da tela) */
+
+const { processosParaEnviar, ENVIO } = await import(
+  '../src/content/features/historico/seletores.js'
+);
+
+const NUP_A = 'NIT-050131/000463/2026';
+const NUP_B = 'NIT-050131/003172/2026';
+
+test('envio de um processo continua funcionando', () => {
+  assert.deepEqual(processosParaEnviar('9233', [`${NUP_A} - Comunicado`]), [
+    { id: '9233', processo: NUP_A },
+  ]);
+});
+
+test('envio de vários processos vira vários registros', () => {
+  // A tela envia em lote: #selProcedimentos é uma lista e #hdnIdProtocolos
+  // está no plural. Registrar um evento só perderia os demais — o mesmo
+  // defeito que a assinatura em bloco tinha.
+  const enviados = processosParaEnviar('9233,9240', [
+    `${NUP_A} - Comunicado`,
+    `${NUP_B} - Análise`,
+  ]);
+
+  assert.equal(enviados.length, 2);
+  assert.deepEqual(enviados.map((e) => e.processo), [NUP_A, NUP_B]);
+  assert.deepEqual(enviados.map((e) => e.id), ['9233', '9240']);
+});
+
+test('quando as contagens divergem, o NUP manda', () => {
+  // É o que a pessoa reconhece no histórico. Casar por posição com contagens
+  // diferentes emparelharia processo com id errado.
+  const enviados = processosParaEnviar('9233', [`${NUP_A} - x`, `${NUP_B} - y`]);
+
+  assert.deepEqual(enviados.map((e) => e.processo), [NUP_A, NUP_B]);
+  assert.deepEqual(enviados.map((e) => e.id), [null, null]);
+});
+
+test('sem NUP na lista, o id ainda identifica', () => {
+  assert.deepEqual(processosParaEnviar('9233', ['Selecione...']), [
+    { id: '9233', processo: null },
+  ]);
+});
+
+test('tela sem nada identificável devolve lista vazia', () => {
+  // O chamador cai para o processo da tela de origem nesse caso.
+  assert.deepEqual(processosParaEnviar('', []), []);
+  assert.deepEqual(processosParaEnviar(null, null), []);
+});
+
+test('os seletores do envio batem com o HTML real', () => {
+  // O formulário é frmAtividadeListar, não frmProcedimentoEnviar. Como a lista
+  // não usa curinga, formularioDaTela() devolvia null e os ouvintes de submit
+  // e de Enter nunca eram ligados — só o clique funcionava, por acaso.
+  assert.ok(ENVIO.formulario.includes('#frmAtividadeListar'));
+  assert.ok(ENVIO.botaoConfirmar.includes('#sbmEnviar'));
+  assert.ok(ENVIO.manterAberto.includes('#chkSinManterAberto'));
+  assert.ok(ENVIO.idsProtocolos.includes('#hdnIdProtocolos'));
+});
+
+test('a lista de formulários do envio não usa o curinga "form"', () => {
+  assert.ok(!ENVIO.formulario.includes('form'));
+});

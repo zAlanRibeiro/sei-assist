@@ -65,6 +65,7 @@ import {
   PENDENCIA_DOCUMENTO,
 } from './armazenamento.js';
 import {
+  processosParaEnviar,
   idsParaAssinar,
   ANDAMENTO,
   ARVORE,
@@ -631,29 +632,47 @@ export function capturarNoEnvio(ctx) {
   const idProcedimento = ctx.param('id_procedimento');
 
   const anotar = () => {
-    const quando = new Date().toISOString();
-    const processo = processoDaOrigem();
-    const id = chaveDeProcesso('envio', processo, idProcedimento, quando);
-    if (!id) {
-      log.warn('tela de envio sem processo nem id_procedimento; nada a capturar');
-      return;
-    }
+    // Os processos vem do campo oculto e da lista da tela, e nao da URL: um
+    // envio pode levar varios de uma vez, e a URL so conhece o de origem.
+    const campo = primeiro(ENVIO.idsProtocolos);
+    const textos = qsa(ENVIO.processos.join(', ')).map((o) => textoDe(o));
+    let processos = processosParaEnviar(campo && campo.value, textos);
+
+    // Sem nada identificavel, ainda vale registrar o envio da tela atual.
+    if (!processos.length) processos = [{ id: idProcedimento, processo: processoDaOrigem() }];
 
     const manter = primeiro(ENVIO.manterAberto);
-    enfileirarAto('proximidade', {
-      id,
-      tipoEvento: 'envio',
-      idProcedimento,
-      processo,
-      unidade: unidadeAtual(),
-      destino: unidadesEscolhidas(),
-      manteveAberto: manter ? Boolean(manter.checked) : null,
-      assinante: usuarioAtual(ctx.opcoes),
-      quando,
-      quandoExato: true,
-      confirmado: false, // o andamento confirma depois
-      origem: 'envio',
-    });
+    const destino = unidadesEscolhidas();
+    const unidade = unidadeAtual();
+    const assinante = usuarioAtual(ctx.opcoes);
+    const quando = new Date().toISOString();
+
+    let enfileirados = 0;
+    for (const alvo of processos) {
+      const id = chaveDeProcesso('envio', alvo.processo, alvo.id, quando);
+      if (!id) continue;
+
+      enfileirarAto('proximidade', {
+        id,
+        tipoEvento: 'envio',
+        // Com varios processos, o id_procedimento da URL vale so para o de
+        // origem; marcar todos com ele apontaria nove para o processo errado.
+        idProcedimento: processos.length === 1 ? idProcedimento : alvo.id,
+        processo: alvo.processo,
+        unidade,
+        destino,
+        manteveAberto: manter ? Boolean(manter.checked) : null,
+        assinante,
+        quando,
+        quandoExato: true,
+        confirmado: false, // o andamento confirma depois
+        origem: 'envio',
+      });
+      enfileirados++;
+    }
+
+    if (!enfileirados) log.warn('tela de envio sem processo identificavel; nada a capturar');
+    else log.debug(`envio de ${enfileirados} processo(s) para ${destino || '(destino nao lido)'}`);
   };
 
   return armarCaptura(ENVIO, 'envio', anotar);
