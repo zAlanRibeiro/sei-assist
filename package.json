@@ -9,5 +9,6 @@
     "validar": "node testes/validar.mjs",
     "check": "npm run validar && npm test",
     "empacotar": "npm run check && node testes/empacotar.mjs"
-  }
+  },
+  "license": "MIT"
 }
