@@ -60,8 +60,17 @@ const destino = path.join(raiz, nome);
 /* --------------------------------- o que a loja recusaria, conferido antes */
 
 const problemas = [];
-if (manifest.web_accessible_resources?.some((r) => r.matches?.includes('*://*/*'))) {
-  problemas.push('web_accessible_resources liberado para qualquer site');
+// O padrão de web_accessible_resources aceita esquema e host, e o caminho
+// tem de ser exatamente /*. Já tentei restringir para *://*/sei/* achando
+// que apertava a segurança, e o Chrome recusou o manifest inteiro: a
+// extensão parou de carregar com "Invalid match pattern".
+const PADRAO_WAR = /^[a-z*]+:\/\/[^/]+\/\*$/;
+for (const recurso of manifest.web_accessible_resources || []) {
+  for (const padrao of recurso.matches || []) {
+    if (!PADRAO_WAR.test(padrao)) {
+      problemas.push(`padrão inválido em web_accessible_resources: ${padrao}`);
+    }
+  }
 }
 if (manifest.host_permissions) {
   problemas.push('host_permissions presente — a extensão não precisa de nenhum');
