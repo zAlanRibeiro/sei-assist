@@ -296,5 +296,4 @@ Ver [docs/como-adicionar-uma-feature.md](docs/como-adicionar-uma-feature.md).
 MIT — veja [LICENSE](LICENSE). Use, adapte e distribua à vontade,
 inclusive em outros órgãos.
 
-A extensão não tem vínculo com o SEI nem com o Ministério da Economia,
-que o desenvolve. É um projeto independente.
+A extensão não tem vínculo com o SEI. É um projeto independente.
