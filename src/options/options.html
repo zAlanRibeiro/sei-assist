@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>SEI Assist — Opções</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>SEI Assist</h1>
+        <p class="sub">
+          Funcionalidades da extensão. As mudanças valem imediatamente nas abas
+          do SEI já abertas — não é preciso recarregar a página.
+        </p>
+      </header>
+
+      <section id="features"></section>
+
+      <section class="bloco">
+        <h2>Diagnóstico</h2>
+        <p>
+          Para ver os registros da extensão no console da página (F12), execute
+          <code>localStorage.setItem('seix:debug', '1')</code> no console do SEI
+          e recarregue.
+        </p>
+        <button id="restaurar" type="button" class="btn btn--secundario">
+          Restaurar configurações padrão
+        </button>
+        <span id="aviso" class="aviso" role="status"></span>
+      </section>
+    </main>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

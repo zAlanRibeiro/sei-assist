@@ -1,0 +1,629 @@
+/*
+ * content.css - estilos injetados na pagina do SEI.
+ *
+ * Regras:
+ *  - tudo prefixado com `seix-`, para nunca colidir com o CSS `infra*` do SEI;
+ *  - nada aqui pode afetar a pagina enquanto a extensao nao adicionar as
+ *    classes correspondentes (o arquivo entra em document_start);
+ *  - use as variaveis abaixo em vez de cores soltas.
+ */
+
+/*
+ * Paleta.
+ *
+ * O que esta aqui e so o PADRAO (gov.br). Em tempo de execucao o
+ * src/content/core/tema.js reescreve estes mesmos tokens na raiz do
+ * documento, com as cores lidas da tela do SEI, para o painel vestir o tema
+ * do orgao - inclusive o modo escuro. Se a leitura falhar, sobra isto aqui.
+ *
+ * Por isso toda regra usa a forma var(--token, padrao): o valor no fallback
+ * mantem o arquivo legivel isolado e nunca chega a ser usado no navegador.
+ *
+ * As cores de evento (ev-*) sao a excecao deliberada. Elas carregam
+ * significado - verde e ASSINADO, azul e ENVIADO, roxo processo, laranja
+ * documento - entao nao acompanham o tema. Cada uma tem duas formas:
+ *   --seix-ev-X          preenchimento da etiqueta, sempre com texto branco;
+ *   --seix-ev-X-realce   a mesma cor deslizada na luminosidade so o bastante
+ *                        para ler sobre o fundo do painel (faixa lateral).
+ */
+:root {
+  --seix-cor-primaria: #1351b4;         /* azul do padrao gov.br */
+  --seix-cor-primaria-realce: #0c326f;  /* a primaria usada como texto */
+  --seix-cor-primaria-texto: #ffffff;   /* texto sobre a primaria */
+
+  --seix-cor-fundo: #ffffff;
+  --seix-cor-superficie: #f2f4f7;       /* campos, botoes, chips */
+  --seix-cor-superficie-alta: #eef0f4;  /* trilho das abas */
+
+  --seix-cor-texto: #1c1c1c;
+  --seix-cor-texto-suave: #475467;      /* rotulos, horario, contagem */
+  --seix-cor-texto-fraco: #98a2b3;      /* placeholder, botao de remover */
+  --seix-cor-borda: #d0d5dd;
+  --seix-cor-borda-suave: #eef0f4;      /* filete entre itens da lista */
+
+  --seix-cor-sucesso: #168821;
+  --seix-cor-alerta: #b8860b;
+  --seix-cor-erro: #c62828;
+  --seix-cor-aviso-fundo: #fdf6e3;
+  --seix-cor-aviso-texto: #6b5300;
+
+  --seix-ev-assinatura: #168821;
+  --seix-ev-assinatura-realce: #168821;
+  --seix-ev-envio: #1351b4;
+  --seix-ev-envio-realce: #1351b4;
+  --seix-ev-processo-criado: #6d28d9;
+  --seix-ev-processo-criado-realce: #6d28d9;
+  --seix-ev-documento-criado: #b45309;
+  --seix-ev-documento-criado-realce: #b45309;
+
+  /*
+   * Marca "Assist" na barra do SEI. Branco fixo, a pedido: e um sinal de
+   * "a extensao esta ligada", nao um elemento do sistema, entao nao
+   * acompanha o tema do orgao. Mesma categoria das cores de evento.
+   */
+  --seix-marca-cor: #ffffff;
+
+  /*
+   * Contador de novidades no bloco de assinatura. Cor cheia com texto
+   * branco, fixa: um contador precisa ser legível em qualquer tema, então
+   * não acompanha o do órgão. Mesmo critério das cores de evento.
+   */
+  --seix-cor-novidade: #c62828;
+  --seix-cor-novidade-texto: #ffffff;
+
+  --seix-esquema: light;        /* color-scheme dos controles do painel */
+  --seix-brilho-hover: 0.96;    /* >1 em tema escuro: escurecer sumiria */
+  --seix-sombra: 0 4px 16px rgba(0, 0, 0, 0.18);
+  --seix-raio: 6px;
+  --seix-z: 2147483000;
+}
+
+#seix-root {
+  position: static;
+  font-family: "Segoe UI", Tahoma, Verdana, sans-serif;
+}
+
+/* ---------------------------------------------------------------- toasts */
+
+.seix-toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: var(--seix-z, 2147483000);
+  max-width: 380px;
+  padding: 12px 16px;
+  border-radius: var(--seix-raio, 6px);
+  border-left: 4px solid var(--seix-cor-primaria, #1351b4);
+  background: var(--seix-cor-fundo, #ffffff);
+  color: var(--seix-cor-texto, #1c1c1c);
+  box-shadow: var(--seix-sombra, 0 4px 16px rgba(0, 0, 0, 0.18));
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.seix-toast--visivel {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.seix-toast--sucesso { border-left-color: var(--seix-cor-sucesso, #168821); }
+.seix-toast--alerta  { border-left-color: var(--seix-cor-alerta, #b8860b); }
+.seix-toast--erro    { border-left-color: var(--seix-cor-erro, #c62828); }
+
+/* Toasts empilham de baixo para cima. */
+.seix-toast ~ .seix-toast { bottom: 76px; }
+.seix-toast ~ .seix-toast ~ .seix-toast { bottom: 136px; }
+
+/* ------------------------------------------------------------- dialogos */
+
+.seix-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--seix-z, 2147483000);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.seix-dialogo {
+  width: min(460px, calc(100vw - 32px));
+  padding: 20px 22px;
+  border-radius: var(--seix-raio, 6px);
+  background: var(--seix-cor-fundo, #ffffff);
+  color: var(--seix-cor-texto, #1c1c1c);
+  box-shadow: var(--seix-sombra, 0 4px 16px rgba(0, 0, 0, 0.18));
+  font-size: 14px;
+}
+
+.seix-dialogo__titulo {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--seix-cor-primaria-realce, #0c326f);
+}
+
+.seix-dialogo__texto {
+  margin: 0 0 18px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.seix-dialogo__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* --------------------------------------------------------------- botoes */
+
+.seix-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--seix-cor-borda, #d0d5dd);
+  border-radius: 4px;
+  background: var(--seix-cor-superficie, #f2f4f7);
+  color: var(--seix-cor-texto, #1c1c1c);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.seix-btn:hover { filter: brightness(var(--seix-brilho-hover, 0.96)); }
+
+.seix-btn--primario {
+  border-color: var(--seix-cor-primaria, #1351b4);
+  background: var(--seix-cor-primaria, #1351b4);
+  color: var(--seix-cor-primaria-texto, #fff);
+}
+
+.seix-btn--secundario { background: var(--seix-cor-fundo, #ffffff); }
+
+.seix-botao-barra { margin-left: 6px; }
+
+/* --------------------------------------------------------------- painel */
+
+.seix-painel {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: var(--seix-z, 2147483000);
+  display: flex;
+  flex-direction: column;
+  width: min(360px, 90vw);
+  background: var(--seix-cor-fundo, #ffffff);
+  color: var(--seix-cor-texto, #1c1c1c);
+  box-shadow: var(--seix-sombra, 0 4px 16px rgba(0, 0, 0, 0.18));
+  font-size: 13px;
+}
+
+.seix-painel--direita { right: 0; }
+.seix-painel--esquerda { left: 0; }
+
+.seix-painel__cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--seix-cor-primaria, #1351b4);
+  color: var(--seix-cor-primaria-texto, #fff);
+  font-weight: 600;
+}
+
+.seix-painel__fechar {
+  border: 0;
+  background: transparent;
+  color: var(--seix-cor-primaria-texto, #fff);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.seix-painel__corpo {
+  flex: 1;
+  overflow: auto;
+  padding: 14px;
+}
+
+/* ------------------------------------------------------------- inspetor */
+
+.seix-inspetor { display: flex; flex-direction: column; gap: 10px; }
+
+.seix-inspetor__info {
+  margin: 0;
+  padding: 8px;
+  border-radius: 4px;
+  background: var(--seix-cor-superficie, #f2f4f7);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.seix-inspetor__aviso {
+  margin: 4px 0 0;
+  color: var(--seix-cor-texto-suave, #555);
+  font-size: 11px;
+}
+
+.seix-inspetor-ativo, .seix-inspetor-ativo * { cursor: crosshair !important; }
+
+.seix-inspetor-alvo {
+  outline: 2px solid var(--seix-cor-erro, #c62828) !important;
+  outline-offset: -2px;
+  background: rgba(198, 40, 40, 0.08) !important;
+}
+
+/* -------------------------------------------- historico de assinaturas */
+
+.seix-hist { display: flex; flex-direction: column; gap: 10px; height: 100%; }
+
+.seix-hist__busca {
+  padding: 7px 9px;
+  border: 1px solid var(--seix-cor-borda, #d0d5dd);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.seix-hist__filtros { display: flex; gap: 6px; }
+
+.seix-hist__periodo {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--seix-cor-borda, #d0d5dd);
+  border-radius: 4px;
+  background: var(--seix-cor-fundo, #ffffff);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.seix-hist__periodo--ativo {
+  border-color: var(--seix-cor-primaria, #1351b4);
+  background: var(--seix-cor-primaria, #1351b4);
+  color: var(--seix-cor-primaria-texto, #fff);
+}
+
+.seix-hist__so-minhas {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--seix-cor-texto-suave, #475467);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.seix-hist__so-minhas input:disabled + span { opacity: 0.55; cursor: not-allowed; }
+
+.seix-hist__lista {
+  flex: 1;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.seix-hist__dia {
+  position: sticky;
+  top: 0;
+  margin-top: 10px;
+  padding: 5px 0 4px;
+  background: var(--seix-cor-fundo, #ffffff);
+  color: var(--seix-cor-texto-suave, #667085);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.seix-hist__item {
+  position: relative;
+  padding: 7px 22px 7px 9px;
+  border-top: 1px solid var(--seix-cor-borda-suave, #eef0f4);
+}
+
+.seix-hist__linha { display: flex; gap: 9px; align-items: baseline; }
+
+.seix-hist__hora {
+  flex: none;
+  color: var(--seix-cor-texto-suave, #667085);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11.5px;
+}
+
+.seix-hist__titulo { color: var(--seix-cor-primaria-realce, #1351b4); font-weight: 600; }
+
+a.seix-hist__titulo { text-decoration: none; }
+a.seix-hist__titulo:hover { text-decoration: underline; }
+
+.seix-hist__detalhes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 4px 0 0 46px;
+}
+
+.seix-hist__marca {
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--seix-cor-superficie-alta, #eef0f4);
+  color: var(--seix-cor-texto-suave, #667085);
+  font-size: 10px;
+  cursor: help;
+}
+
+/* A linha de origem fica logo abaixo da de periodo, mais discreta: ela e um
+   recorte dentro dos assinados, nao um filtro de mesma importancia. */
+.seix-hist__origens { margin-top: -4px; }
+.seix-hist__origens .seix-hist__periodo { font-size: 11px; padding: 3px 8px; }
+
+.seix-hist__marca--pendente { background: var(--seix-cor-aviso-fundo, #fdf3d8); color: var(--seix-cor-aviso-texto, #7a5c00); }
+
+.seix-hist__remover {
+  position: absolute;
+  top: 6px;
+  right: 0;
+  padding: 0 5px;
+  border: 0;
+  background: transparent;
+  color: var(--seix-cor-texto-fraco, #98a2b3);
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.seix-hist__item:hover .seix-hist__remover { opacity: 1; }
+.seix-hist__remover:hover { color: var(--seix-cor-erro, #c62828); }
+
+.seix-hist__vazio {
+  padding: 22px 6px;
+  color: var(--seix-cor-texto-suave, #667085);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.seix-hist__rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--seix-cor-borda, #d0d5dd);
+}
+
+.seix-hist__contagem { color: var(--seix-cor-texto-suave, #667085); font-size: 11.5px; }
+
+.seix-hist__acoes { display: flex; gap: 6px; }
+
+.seix-hist__acoes .seix-btn { padding: 5px 9px; font-size: 11.5px; }
+
+/* Fallback: so aparece quando nao ha linha de links nem barra de comandos.
+   Afastado da borda para nao encavalar na barra de rolagem da pagina. */
+.seix-hist__flutuante {
+  position: fixed;
+  right: 32px;
+  bottom: 28px;
+  z-index: calc(var(--seix-z, 2147483000) - 1);
+  box-shadow: var(--seix-sombra, 0 4px 16px rgba(0, 0, 0, 0.18));
+}
+
+.seix-hist__assinante {
+  color: var(--seix-cor-texto-suave, #475467);
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* abas de tipo de evento (assinei / enviei) */
+
+.seix-hist__abas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 6px;
+  background: var(--seix-cor-superficie-alta, #eef0f4);
+}
+
+.seix-hist__aba {
+  flex: 1 1 auto;
+  min-width: 30%;
+  padding: 6px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--seix-cor-texto-suave, #475467);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.seix-hist__aba:hover { background: var(--seix-cor-superficie, #f2f4f7); }
+
+/* cinco abas nao cabem em 360px sem apertar a fonte */
+.seix-hist__aba { font-size: 11.5px; white-space: nowrap; }
+
+.seix-hist__aba--ativa {
+  background: var(--seix-cor-fundo, #ffffff);
+  color: var(--seix-cor-primaria-realce, #1351b4);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+/* etiqueta e faixa lateral que separam assinatura de envio na aba "Tudo" */
+
+.seix-hist__tag {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+/*
+ * Cores saturadas, de proposito.
+ *
+ * O resto do painel acompanha o tema do SEI, mas estas quatro nao: elas sao
+ * o que distingue ASSINADO de ENVIADO de PROC. CRIADO de DOC. CRIADO. Se
+ * mudassem junto com o tema, dois tipos poderiam virar a mesma cor.
+ *
+ * A etiqueta usa cor cheia com texto branco porque essa combinacao atravessa
+ * qualquer tema, inclusive os que reescrevem fundo claro para escuro (o modo
+ * escuro do proprio SEI, ou o Dark Reader). Um pastel como #e3f5e6 viraria
+ * cinza e a distincao se perderia.
+ *
+ * A faixa lateral do item e o unico ponto que cede: ela fica sobre o fundo do
+ * painel, entao o tema.js desliza a luminosidade dela ate contrastar. Matiz e
+ * saturacao ficam - verde continua verde, so mais claro em tema escuro.
+ */
+
+/* Branco fixo: a etiqueta e preenchida com a cor do evento. */
+.seix-hist__tag {
+  color: #ffffff;
+}
+
+.seix-hist__tag--assinatura { background: var(--seix-ev-assinatura, #168821); }
+.seix-hist__tag--envio { background: var(--seix-ev-envio, #1351b4); }
+.seix-hist__tag--processo-criado { background: var(--seix-ev-processo-criado, #6d28d9); }
+.seix-hist__tag--documento-criado { background: var(--seix-ev-documento-criado, #b45309); }
+
+/* Faixa lateral: mesma cor da etiqueta, larga o bastante para ler de relance. */
+.seix-hist__item { border-left: 4px solid transparent; }
+.seix-hist__item--assinatura { border-left-color: var(--seix-ev-assinatura-realce, #168821); }
+.seix-hist__item--envio { border-left-color: var(--seix-ev-envio-realce, #1351b4); }
+.seix-hist__item--processo-criado { border-left-color: var(--seix-ev-processo-criado-realce, #6d28d9); }
+.seix-hist__item--documento-criado { border-left-color: var(--seix-ev-documento-criado-realce, #b45309); }
+
+/* identificadores clicaveis, que copiam em vez de navegar */
+
+.seix-hist__copiavel {
+  padding: 1px 5px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: var(--seix-cor-superficie, #f2f4f7);
+  color: var(--seix-cor-texto-suave, #344054);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.seix-hist__copiavel:hover {
+  border-color: var(--seix-cor-primaria, #1351b4);
+  color: var(--seix-cor-primaria-realce, #1351b4);
+}
+
+.seix-hist__doc { font-weight: 600; }
+
+/* aviso de identidade desconhecida */
+
+.seix-hist__aviso {
+  margin: 0;
+  padding: 9px 10px;
+  border-left: 3px solid var(--seix-cor-alerta, #b8860b);
+  border-radius: 3px;
+  background: var(--seix-cor-aviso-fundo, #fdf6e3);
+  color: var(--seix-cor-aviso-texto, #6b5300);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.seix-hist__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--seix-cor-primaria-realce, #1351b4);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------------
+ * Blindagem contra o tema da página.
+ *
+ * O SEI (e temas escuros de terceiros) declara `color-scheme: dark`. Com isso
+ * o navegador pinta input, button e select com o tema ESCURO nativo sempre que
+ * o elemento não define cor própria — foi o que deixou a busca e os botões do
+ * painel pretos, mesmo com o painel branco em volta.
+ *
+ * Duas defesas, juntas:
+ *  1. `color-scheme` explicito no container, hoje alimentado pelo tema.js
+ *     com o esquema derivado do proprio SEI (era fixo em `light`);
+ *  2. background e color explícitos em cada controle, para nunca herdar.
+ *
+ * Escopo em #seix-root eleva a especificidade acima de regra de tema por
+ * classe, sem precisar de !important.
+ * --------------------------------------------------------------------- */
+
+#seix-root {
+  color-scheme: var(--seix-esquema, light);
+}
+
+#seix-root input,
+#seix-root button,
+#seix-root select,
+#seix-root textarea {
+  color-scheme: var(--seix-esquema, light);
+  font-family: inherit;
+}
+
+#seix-root .seix-hist__busca {
+  background: var(--seix-cor-fundo, #ffffff);
+  color: var(--seix-cor-texto, #1c1c1c);
+}
+
+#seix-root .seix-hist__busca::placeholder {
+  color: var(--seix-cor-texto-fraco, #98a2b3);
+  opacity: 1;
+}
+
+#seix-root .seix-hist__periodo {
+  background: var(--seix-cor-fundo, #ffffff);
+  color: var(--seix-cor-texto, #1c1c1c);
+}
+
+#seix-root .seix-hist__periodo--ativo {
+  background: var(--seix-cor-primaria, #1351b4);
+  color: var(--seix-cor-primaria-texto, #fff);
+}
+
+#seix-root .seix-hist__aba {
+  background: transparent;
+  color: var(--seix-cor-texto-suave, #475467);
+}
+
+#seix-root .seix-hist__aba--ativa {
+  background: var(--seix-cor-fundo, #ffffff);
+  color: var(--seix-cor-primaria-realce, #1351b4);
+}
+
+#seix-root .seix-btn {
+  background: var(--seix-cor-superficie, #f2f4f7);
+  color: var(--seix-cor-texto, #1c1c1c);
+}
+
+#seix-root .seix-btn--primario {
+  background: var(--seix-cor-primaria, #1351b4);
+  color: var(--seix-cor-primaria-texto, #fff);
+}
+
+#seix-root .seix-hist__copiavel {
+  background: var(--seix-cor-superficie, #f2f4f7);
+  color: var(--seix-cor-texto-suave, #344054);
+}
+
+#seix-root .seix-hist__remover {
+  background: transparent;
+  color: var(--seix-cor-texto-fraco, #98a2b3);
+}
+
+#seix-root .seix-painel__fechar {
+  background: transparent;
+  color: var(--seix-cor-primaria-texto, #fff);
+}

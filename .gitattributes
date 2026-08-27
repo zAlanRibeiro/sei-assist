@@ -1,0 +1,14 @@
+# Normaliza fim de linha.
+#
+# O projeto é escrito no Windows, onde o Git converte LF para CRLF na cópia de
+# trabalho. Sem esta normalização, quem clonar no Linux ou no Mac veria todos
+# os arquivos como modificados sem ter tocado em nada — e o histórico encheria
+# de diferenças que não são mudança de código.
+#
+# `eol=lf` grava LF no repositório e na cópia de trabalho, em qualquer sistema.
+* text=auto eol=lf
+
+# Binários: nunca converter.
+*.png binary
+*.zip binary
+*.crx binary

@@ -1,0 +1,72 @@
+{
+  "manifest_version": 3,
+  "name": "SEI Assist",
+  "version": "1.0.0",
+  "description": "Histórico do que você assinou e enviou, alerta de bloco de assinatura, rascunho no editor e cópia rápida do número do processo. Tudo local.",
+  "minimum_chrome_version": "102",
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "action": {
+    "default_title": "SEI Assist",
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "32": "assets/icons/icon32.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    }
+  },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*/sei/*"
+      ],
+      "css": [
+        "src/styles/content.css"
+      ],
+      "all_frames": true,
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://*/sei/*"
+      ],
+      "js": [
+        "src/content/loader.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/content/*.js",
+        "src/content/core/*.js",
+        "src/content/features/*.js",
+        "src/content/features/*/*.js",
+        "src/shared/*.js",
+        "assets/*"
+      ],
+      "matches": [
+        "*://*/sei/*"
+      ]
+    }
+  ]
+}
