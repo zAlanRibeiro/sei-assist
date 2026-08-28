@@ -165,3 +165,34 @@ test('lista vazia não quebra', () => {
   assert.deepEqual(narrar([]), []);
   assert.deepEqual(narrar(null), []);
 });
+
+/* ------------------------------------------------------------ os e-mails */
+
+const { encurtarEmails } = await import('../src/content/features/trajetoria/narrativa.js');
+const EMAIL_INST = 'alan.ribeiro@nittrans.niteroi.rj.gov.br';
+
+test('o e-mail institucional vira só o nome', () => {
+  // O domínio é o mesmo para todo mundo do órgão: não distingue ninguém, e
+  // sozinho é mais comprido que a frase toda.
+  assert.equal(encurtarEmails(EMAIL_INST), 'alan.ribeiro');
+});
+
+test('texto sem e-mail passa intacto', () => {
+  assert.equal(encurtarEmails('Reabertura do processo'), 'Reabertura do processo');
+});
+
+test('o usuário da frase sai sem o domínio', () => {
+  assert.equal(
+    frasear(ev('processoCriado', 1, '09:00', { unidade: DIVCC, usuario: EMAIL_INST })),
+    'Processo aberto na DIVCC por alan.ribeiro.',
+  );
+});
+
+test('o e-mail dentro da frase do SEI também encurta', () => {
+  // É a linha real do andamento: assinatura não é um tipo que a extensão
+  // entenda, então a frase é repetida — e é aí que o e-mail aparece inteiro.
+  assert.equal(
+    frasear(ev(null, 2, '15:34', { descricao: `Assinado Documento 00098329 por ${EMAIL_INST}` })),
+    'Assinado Documento 00098329 por alan.ribeiro.',
+  );
+});

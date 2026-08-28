@@ -46,8 +46,21 @@ const ESTILO = {
   lineHeight: '1.5',
 };
 
+/**
+ * COR EXPLICITA EM TODO TEXTO, sem excecao.
+ *
+ * Herdar a cor do container nao funciona dentro do HTML do SEI: heranca so
+ * vale quando NENHUMA regra casa com o elemento, e o tema escuro do SEI tem
+ * regra para span. A regra deles ganha da heranca, e o texto sai branco em
+ * cima do fundo claro da faixa - invisivel. Foi exatamente o que aconteceu.
+ *
+ * Por isso TODA caixa da faixa declara cor, inclusive as que hoje so contem
+ * outras caixas: texto solto dentro delas herda da caixa, e nao do SEI. Ha um
+ * teste que cobra isso de cada estilo deste arquivo.
+ */
 const ESTILO_LINHA = {
   display: 'block',
+  color: 'var(--seix-cor-texto, #1c1c1c)',
   marginBottom: '3px',
   fontWeight: '700',
   fontSize: '14px',
@@ -86,13 +99,21 @@ const ESTILO_LISTA = {
   margin: '8px 0 0',
   padding: '0',
   listStyle: 'none',
+  color: 'var(--seix-cor-texto, #1c1c1c)',
   maxHeight: '320px',
   overflowY: 'auto',
   borderTop: '1px solid var(--seix-cor-borda-suave, #d0d5dd)',
 };
 
+/** A frase do registro. Cor explicita pelo motivo de ESTILO_LINHA. */
+const ESTILO_TEXTO = {
+  flex: '1 1 auto',
+  color: 'var(--seix-cor-texto, #1c1c1c)',
+};
+
 const ESTILO_ITEM = {
   display: 'flex',
+  color: 'var(--seix-cor-texto, #1c1c1c)',
   gap: '10px',
   alignItems: 'baseline',
   padding: '4px 2px',
@@ -148,7 +169,7 @@ function montarHistorico(registros) {
   const itens = registros.map((r) =>
     el('li', { style: ESTILO_ITEM }, [
       el('span', { style: ESTILO_QUANDO, text: dataHoraLegivel(r.quando) }),
-      el('span', { style: { flex: '1 1 auto' }, text: r.texto }),
+      el('span', { style: ESTILO_TEXTO, text: r.texto }),
       r.intervalo ? el('span', { style: ESTILO_INTERVALO, text: `${r.intervalo} depois` }) : null,
     ]),
   );

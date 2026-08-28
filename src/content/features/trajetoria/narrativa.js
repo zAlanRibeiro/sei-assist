@@ -36,11 +36,26 @@ const DIA_MS = 24 * 60 * 60 * 1000;
 const SIGLA_NO_TEXTO = /\b[A-Z][A-Z0-9]*(?:\/[A-Z0-9._-]+)+/g;
 const MENOR_SIGLA = 7;
 
+/** E-mail dentro de um texto qualquer; o grupo e a parte antes do arroba. */
+const EMAIL = /\b([A-Za-z0-9._%+-]+)@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
+
 /** Troca cada sigla longa pela ponta dela, dentro de um texto qualquer. */
 export function encurtarSiglas(texto) {
   return String(texto || '').replace(SIGLA_NO_TEXTO, (achado) =>
     achado.length < MENOR_SIGLA ? achado : siglaCurta(achado),
   );
+}
+
+/**
+ * E-mail institucional vira so o nome: alan.ribeiro@nittrans.niteroi.rj.gov.br
+ * vira alan.ribeiro.
+ *
+ * A coluna de usuario do SEI traz o e-mail inteiro, e ele sozinho e mais
+ * comprido que a frase toda. O dominio e igual para todo mundo do orgao, entao
+ * nao distingue ninguem - so ocupa a linha.
+ */
+export function encurtarEmails(texto) {
+  return String(texto || '').replace(EMAIL, (_, nome) => nome);
 }
 
 /** Frase termina com ponto; a do SEI as vezes nao termina. */
@@ -59,7 +74,7 @@ function pontuar(frase) {
 export function frasear(evento, destino = null) {
   if (!evento) return '';
 
-  const quem = evento.usuario ? ` por ${evento.usuario}` : '';
+  const quem = evento.usuario ? ` por ${encurtarEmails(evento.usuario)}` : '';
   const onde = siglaCurta(evento.unidade);
 
   if (evento.tipo === 'processoCriado') {
@@ -84,7 +99,7 @@ export function frasear(evento, destino = null) {
   }
 
   // Tipo desconhecido: a frase do SEI, so com as siglas enxugadas.
-  return pontuar(encurtarSiglas(evento.descricao));
+  return pontuar(encurtarEmails(encurtarSiglas(evento.descricao)));
 }
 
 /** O par remetido/recebido do mesmo instante, se existir. */
