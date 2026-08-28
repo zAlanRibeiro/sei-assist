@@ -29,7 +29,7 @@ import {
   paraHsl,
   sobrepor,
 } from '../src/content/core/cor.js';
-import { derivarPaleta } from '../src/content/core/tema.js';
+import { derivarPaleta, escolherSuperficie } from '../src/content/core/tema.js';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -304,4 +304,44 @@ test('a marca fica fora do tema, de proposito', () => {
   // Pedido explicito do usuario: branco fixo. Se algum dia o tema.js passar
   // a emitir este token, a marca deixaria de ser branca sem ninguem pedir.
   assert.ok(!Object.keys(derivarPaleta(ESCURO)).includes('--seix-marca-cor'));
+});
+
+/* --------------------------------------------------- de qual frame ler */
+
+test('a superfície vem do primeiro documento que tem fundo próprio', () => {
+  // Frame do SEI costuma ser transparente: quem pinta o escuro é o documento
+  // de fora. Lendo só o frame local, um SEI escuro produzia painel branco no
+  // meio do preto — foi o que apareceu na tela do andamento.
+  const escolhida = escolherSuperficie([
+    { fundo: null, texto: '#ffffff' },
+    { fundo: '#1c1c1c', texto: '#f5f5f5' },
+  ]);
+
+  assert.equal(escolhida.fundo, '#1c1c1c');
+});
+
+test('fundo e texto saem sempre do mesmo documento', () => {
+  // Pegar o fundo escuro de um e o texto escuro de outro daria preto no preto.
+  const escolhida = escolherSuperficie([
+    { fundo: null, texto: '#111111' },
+    { fundo: '#1c1c1c', texto: '#f5f5f5' },
+  ]);
+
+  assert.equal(escolhida.texto, '#f5f5f5', 'não pode herdar o texto de quem não deu o fundo');
+});
+
+test('o frame local tem preferência quando pinta o próprio fundo', () => {
+  const escolhida = escolherSuperficie([
+    { fundo: '#ffffff', texto: '#1c1c1c' },
+    { fundo: '#1c1c1c', texto: '#f5f5f5' },
+  ]);
+
+  assert.equal(escolhida.fundo, '#ffffff');
+});
+
+test('página inteira transparente cai no padrão', () => {
+  const escolhida = escolherSuperficie([{ fundo: null, texto: '#ffffff' }]);
+
+  assert.equal(escolhida.fundo, null);
+  assert.equal(escolhida.texto, null, 'texto sem fundo conhecido não decide nada');
 });

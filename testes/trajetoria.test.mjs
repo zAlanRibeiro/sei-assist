@@ -212,3 +212,22 @@ test('duas passagens pela mesma unidade fecham cada uma no seu tempo', () => {
   assert.equal(duracaoLegivel(paradas[0].duracaoMs), '2 dias', 'primeira passagem');
   assert.equal(duracaoLegivel(paradas[2].duracaoMs), '4 dias', 'segunda passagem');
 });
+
+/* ------------------------------------------------------ a faixa na tela */
+
+import fs from 'node:fs';
+
+test('toda caixa da faixa declara a própria cor', () => {
+  // Herança de cor não funciona dentro do HTML do SEI: ela só vale quando
+  // NENHUMA regra casa com o elemento, e o tema escuro do SEI tem regra para
+  // span. A regra deles ganha, e o texto sai branco sobre o fundo claro da
+  // faixa — invisível. Aconteceu de verdade, com o histórico inteiro em
+  // branco na tela.
+  const fonte = fs.readFileSync('src/content/features/trajetoria/index.js', 'utf8');
+  const blocos = [...fonte.matchAll(/const (ESTILO[A-Z_]*) = \{([^}]*)\}/g)];
+
+  assert.ok(blocos.length >= 8, 'os estilos da faixa deveriam estar todos aqui');
+  for (const [, nome, corpo] of blocos) {
+    assert.ok(corpo.includes('color:'), `${nome} não declara cor`);
+  }
+});

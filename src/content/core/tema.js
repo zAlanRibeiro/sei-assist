@@ -90,16 +90,40 @@ function corComputada(doc, seletores, propriedade) {
 }
 
 /**
+ * Entre as leituras, a do primeiro documento que tem fundo PROPRIO.
+ *
+ * Fundo e texto saem sempre do MESMO documento. Misturar o fundo de um com o
+ * texto de outro monta um par que pode nao contrastar - fundo escuro do topo
+ * com texto escuro do frame, por exemplo.
+ *
+ * Ninguem com fundo proprio significa pagina inteira transparente: o padrao
+ * assume, que e o que valia antes.
+ */
+export function escolherSuperficie(leituras) {
+  for (const leitura of leituras || []) {
+    if (leitura && leitura.fundo) return leitura;
+  }
+  return { fundo: null, texto: null };
+}
+
+/**
  * Colhe as cores de origem na pagina.
  *
- * Fundo e texto vem do frame local, porque e sobre ele que o painel flutua.
- * A cor de destaque vem de onde estiver a barra do SEI - normalmente o frame
- * do topo, ja que o painel costuma abrir dentro de um iframe.
+ * Fundo e texto vem, de preferencia, do frame local - e sobre ele que o painel
+ * flutua. Mas frame do SEI costuma ser TRANSPARENTE: quem pinta o escuro e o
+ * documento de fora. Sem olhar para os vizinhos, um SEI escuro produzia painel
+ * claro dentro do frame do conteudo - branco no meio do preto.
+ *
+ * A cor de destaque vem de onde estiver a barra do SEI, normalmente o topo.
  */
 export function lerFontesDoSei(doc = document) {
-  const superficie = FONTES.superficie;
-  const fundo = corComputada(doc, superficie, 'backgroundColor');
-  const texto = corComputada(doc, superficie, 'color');
+  const ordem = [doc, ...documentosAcessiveis().filter((outro) => outro !== doc)];
+  const { fundo, texto } = escolherSuperficie(
+    ordem.map((outro) => ({
+      fundo: corComputada(outro, FONTES.superficie, 'backgroundColor'),
+      texto: corComputada(outro, FONTES.superficie, 'color'),
+    })),
+  );
 
   let primaria = null;
   for (const outro of documentosAcessiveis()) {
