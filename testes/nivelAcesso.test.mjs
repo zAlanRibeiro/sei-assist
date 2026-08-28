@@ -156,3 +156,151 @@ test('o rótulo acentuado é lido inteiro', () => {
     assert.equal(lerNivel(doc), esperado, texto);
   }
 });
+
+/* ------------------------------------------------- a árvore do processo */
+
+const { nivelNaArvore, descobrirNivel } = await import(
+  '../src/content/features/editor/nivelAcesso.js'
+);
+
+/**
+ * Um pedaço da árvore real (ifrArvore de procedimento_visualizar, SEI 5.0.4).
+ *
+ * Copiado da tela: dois documentos restritos (11970, 29479) e dois públicos
+ * (11965, 12038). O restrito tem um `anchorNA`; o público não tem nada — e é
+ * dessa AUSÊNCIA que se conclui que é público.
+ */
+function arvoreReal() {
+  const no = (id, extra = []) => [
+    elemento('a', { id: `anchor${id}`, class: 'infraArvoreNo' }, [
+      elemento('span', { id: `span${id}` }, [`Despacho ${id}`]),
+    ]),
+    elemento('a', { id: `anchorUG${id}`, class: 'infraArvoreInformacao' }, [
+      elemento('span', {}, ['NIT/NITTRANS/DIVEST']),
+    ]),
+    ...extra,
+  ];
+
+  const restrito = (id) =>
+    elemento('a', { id: `anchorNA${id}`, class: 'infraArvoreNoAcao' }, [
+      elemento('img', {
+        id: `iconNA${id}`,
+        title: 'Acesso Restrito\nInformação Pessoal (Art. 31 da Lei nº 12.527)',
+        src: 'processo_restrito.svg?25',
+      }),
+    ]);
+
+  const assinado = (id) =>
+    elemento('a', { id: `anchorA${id}`, class: 'infraArvoreNoAcao' }, [
+      elemento('img', { id: `iconA${id}`, title: 'Assinado por:\nAlan', src: 'assinatura2.svg?25' }),
+    ]);
+
+  return elemento('body', { class: 'infraArvore' }, [
+    elemento('form', { id: 'frmArvore' }, [
+      elemento('div', { id: 'divArvore', class: 'infraArvore' }, [
+        ...no('11965', [assinado('11965')]),
+        ...no('11970', [restrito('11970')]),
+        ...no('12038'),
+        ...no('29479', [restrito('29479')]),
+      ]),
+    ]),
+  ]);
+}
+
+test('documento com anchorNA na árvore é restrito', () => {
+  const doc = instalarDocumento(arvoreReal());
+
+  assert.equal(nivelNaArvore(doc, '11970'), RESTRITO);
+  assert.equal(nivelNaArvore(doc, '29479'), RESTRITO);
+});
+
+test('documento sem anchorNA na árvore é público', () => {
+  // A ausência do marcador é a informação. Só vale porque o documento FOI
+  // achado na árvore — ver o teste seguinte.
+  const doc = instalarDocumento(arvoreReal());
+
+  assert.equal(nivelNaArvore(doc, '11965'), PUBLICO, 'assinado, mas público');
+  assert.equal(nivelNaArvore(doc, '12038'), PUBLICO);
+});
+
+test('documento fora da árvore é desconhecido, nunca público', () => {
+  // ESTE é o erro grave a evitar: concluir "público" de "não olhei". A árvore
+  // pode ser de outro processo, ou ainda não ter carregado.
+  const doc = instalarDocumento(arvoreReal());
+
+  assert.equal(nivelNaArvore(doc, '99999'), DESCONHECIDO);
+});
+
+test('tela que não é árvore nenhuma é desconhecida', () => {
+  const doc = instalarDocumento(
+    elemento('body', {}, [elemento('div', { id: 'anchor11965' }, ['qualquer coisa'])]),
+  );
+
+  assert.equal(nivelNaArvore(doc, '11965'), DESCONHECIDO);
+});
+
+test('sem id de documento não se conclui nada', () => {
+  const doc = instalarDocumento(arvoreReal());
+
+  assert.equal(nivelNaArvore(doc, null), DESCONHECIDO);
+  assert.equal(nivelNaArvore(doc, ''), DESCONHECIDO);
+  assert.equal(nivelNaArvore(null, '11970'), DESCONHECIDO);
+});
+
+test('marcador presente mas ilegível continua fechado', () => {
+  // Título e ícone que não dizem a palavra. O que importa para a política é
+  // que NÃO é público; supor restrito é o palpite conservador.
+  const raiz = elemento('body', { class: 'infraArvore' }, [
+    elemento('div', { id: 'divArvore' }, [
+      elemento('a', { id: 'anchor555' }, ['Doc']),
+      elemento('a', { id: 'anchorNA555' }, [elemento('img', { id: 'iconNA555', src: 'x.svg' })]),
+    ]),
+  ]);
+
+  assert.equal(nivelNaArvore(instalarDocumento(raiz), '555'), RESTRITO);
+});
+
+test('o ícone salva quando o título não diz a palavra', () => {
+  const raiz = elemento('body', { class: 'infraArvore' }, [
+    elemento('div', { id: 'divArvore' }, [
+      elemento('a', { id: 'anchor777' }, ['Doc']),
+      elemento('a', { id: 'anchorNA777' }, [
+        elemento('img', { id: 'iconNA777', title: 'Ver detalhes', src: 'processo_sigiloso.svg?25' }),
+      ]),
+    ]),
+  ]);
+
+  assert.equal(nivelNaArvore(instalarDocumento(raiz), '777'), SIGILOSO);
+});
+
+test('descobrirNivel encontra a árvore pela janela que abriu o editor', () => {
+  // O editor do SEI abre em JANELA própria: window.top é ele mesmo, e a
+  // varredura normal de frames não alcança a árvore. Quem alcança é o opener.
+  const docArvore = { body: null, querySelectorAll: null };
+  const raiz = arvoreReal();
+  Object.assign(docArvore, {
+    body: raiz,
+    querySelectorAll: (s) => raiz.querySelectorAll(s),
+  });
+
+  const janelaEditor = {
+    document: { body: null, querySelectorAll: () => [] },
+    frames: { length: 0 },
+    opener: { document: docArvore, frames: { length: 0 } },
+  };
+
+  assert.equal(descobrirNivel('11970', janelaEditor), RESTRITO);
+  assert.equal(descobrirNivel('11965', janelaEditor), PUBLICO);
+});
+
+test('sem opener acessível, descobrirNivel não inventa', () => {
+  const janela = {
+    document: { body: null, querySelectorAll: () => [] },
+    frames: { length: 0 },
+    get opener() {
+      throw new Error('outra origem');
+    },
+  };
+
+  assert.equal(descobrirNivel('11970', janela), DESCONHECIDO);
+});

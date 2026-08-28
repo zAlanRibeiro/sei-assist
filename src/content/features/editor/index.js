@@ -16,7 +16,7 @@ import { log } from '../../core/log.js';
 import { formatarData } from './data.js';
 import { corpoDoTexto, idDoDocumento, secoes, textoDasSecoes, EDITOR } from './seletores.js';
 import { descartar, guardar, podeGuardar, recuperar } from './rascunho.js';
-import { diagnosticar, ehFechado, lerNivel } from './nivelAcesso.js';
+import { descobrirNivel, diagnosticar, ehFechado } from './nivelAcesso.js';
 
 const ID_BOTAO = 'seix-editor-data';
 const INTERVALO_MS = 5000;
@@ -377,9 +377,19 @@ export default {
     montarBotao();
     limpezas.push(observar(document.body, montarBotao, { debounce: 500 }));
 
+    if (!idDocumento) {
+      // Sem id nao ha chave estavel: guardar aqui seria guardar onde ninguem
+      // vai procurar depois.
+      log.warn(`rascunho sem id de documento (janela "${window.name}")`);
+      return () => limpezas.forEach((fn) => fn && fn());
+    }
+
     // O nivel de acesso e lido UMA vez, na entrada: ele nao muda enquanto o
     // documento esta aberto no editor, e reler a cada gravacao so gastaria.
-    const nivel = lerNivel();
+    //
+    // A resposta vem da ARVORE do processo, na janela que abriu o editor - a
+    // janela do editor nao mostra nivel de acesso nenhum.
+    const nivel = descobrirNivel(idDocumento);
     const permissao = podeGuardar({
       nivel,
       guardarRascunho: ctx.opcoes.guardarRascunho,
@@ -409,12 +419,6 @@ export default {
     // Guardando sem saber o nivel: registra o que a tela mostra, para fechar
     // essa lacuna com evidencia em vez de mais um chute.
     if (nivel === 'desconhecido') diagnosticar();
-    if (!idDocumento) {
-      // Sem id nao ha chave estavel: guardar aqui seria guardar onde ninguem
-      // vai procurar depois.
-      log.warn(`rascunho sem id de documento (janela "${window.name}")`);
-      return () => limpezas.forEach((fn) => fn && fn());
-    }
     log.info(`rascunho ativo para doc:${idDocumento}`);
 
     // Oferta de recuperacao.

@@ -47,6 +47,10 @@ desligado por inteiro nas opções.
 em disco. Quando a extensão identifica o nível de acesso como restrito ou
 sigiloso, ela não guarda nada e avisa na tela — em vez de falhar em silêncio.
 
+A extensão descobre o nível na **árvore do processo**, na janela que abriu o
+editor: o SEI marca ali o documento de acesso fechado, e a ausência dessa marca
+num documento que está na árvore significa que ele é público.
+
 Quando ela **não consegue identificar** o nível, o comportamento padrão é
 guardar, e a opção *"Só guardar rascunho quando o documento for público"* muda
 isso para não guardar. O padrão é esse porque a leitura do nível ainda não foi
