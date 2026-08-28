@@ -8,6 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 globalThis.chrome = { runtime: { id: 'teste' } };
 
@@ -221,4 +222,26 @@ test('redesenha quando o número muda ou o selo sumiu', () => {
 
 test('zerar apaga os selos existentes', () => {
   assert.equal(precisaRedesenhar(['3', '3'], 0), true);
+});
+
+test('nada relevante não é aviso; resposta sem tabela é', () => {
+  // Era um `log.warn` a cada consulta, para sempre, na página de erros da
+  // extensão — e "nenhum bloco para a sua unidade" é o estado NORMAL na
+  // maior parte do tempo. Aviso que aparece sempre deixa de ser aviso.
+  //
+  // Resposta SEM TABELA é outra coisa: ou a página mudou, ou o parser
+  // quebrou. Essa continua merecendo aviso, porque só aparece quando há algo
+  // a consertar.
+  const fonte = fs.readFileSync('src/content/features/bloco/index.js', 'utf8');
+
+  assert.match(
+    fonte,
+    /if \(diagnostico\.temTabela\) log\.debug\('bloco de assinatura: nada relevante'/,
+    'o caso normal deveria ser debug',
+  );
+  assert.match(
+    fonte,
+    /else log\.warn\('bloco de assinatura: a resposta nao tinha tabela'/,
+    'a falha de leitura deveria continuar avisando',
+  );
 });
