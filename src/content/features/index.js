@@ -17,5 +17,15 @@ import blocoAssinatura from './bloco/index.js';
 import copiarNumero from './copiar/index.js';
 import editor from './editor/index.js';
 import trajetoria from './trajetoria/index.js';
+import trocarUnidade from './unidade/index.js';
 
-export default [historicoAssinaturas, blocoAssinatura, copiarNumero, editor, trajetoria, marca, inspetor];
+export default [
+  historicoAssinaturas,
+  blocoAssinatura,
+  copiarNumero,
+  editor,
+  trajetoria,
+  trocarUnidade,
+  marca,
+  inspetor,
+];
