@@ -82,6 +82,12 @@ const ESTILO_DESCRICAO = {
   fontSize: '11px',
 };
 
+const ESTILO_NOTA = {
+  padding: '6px 8px',
+  color: 'var(--seix-cor-texto-fraco, #667085)',
+  fontSize: '11px',
+};
+
 const ESTILO_ATALHO = {
   marginLeft: '4px',
   padding: '0 6px',
@@ -159,35 +165,60 @@ function fecharPainel() {
   if (antigo) antigo.remove();
 }
 
+/**
+ * O conteúdo do painel, decidido antes de virar DOM.
+ *
+ * Separado do desenho para poder ser testado sem navegador — e porque a regra
+ * do "atual" já tem uma sutileza que merece teste: a unidade atual é a que
+ * está na BARRA agora, não a que estava marcada quando a lista foi guardada.
+ * Depois da primeira troca a marca guardada aponta para a unidade errada.
+ */
+export function itensDoPainel(unidades, siglaAtual) {
+  return (unidades || []).map((unidade) => ({
+    sigla: unidade.sigla,
+    descricao: unidade.descricao || '',
+    atual: unidade.sigla === siglaAtual,
+    acionavel: unidade.sigla !== siglaAtual,
+  }));
+}
+
+/** A nota do rodapé do painel, quando há o que explicar. */
+export function notaDoPainel(itens) {
+  const lista = itens || [];
+  if (!lista.length) return null;
+  if (lista.length === 1) return 'Você só tem acesso a esta unidade.';
+  if (!lista.some((i) => i.acionavel)) return 'Nenhuma outra unidade para trocar.';
+  return null;
+}
+
 function abrirPainel(ancora, unidades, atual, aoEscolher) {
   fecharPainel();
 
   const painel = el('div', { id: ID_PAINEL, style: ESTILO_PAINEL });
+  const itens = itensDoPainel(unidades, atual);
 
-  for (const unidade of unidades) {
-    // "Atual" é a unidade da barra AGORA, não a que estava marcada quando a
-    // lista foi guardada — senão a extensão desabilitaria a linha errada
-    // depois da primeira troca.
-    const ehAtual = unidade.sigla === atual;
+  for (const item of itens) {
+    const unidade = unidades.find((u) => u.sigla === item.sigla);
     painel.appendChild(
       el(
         'button',
         {
           type: 'button',
-          style: ehAtual ? ESTILO_ITEM_ATUAL : ESTILO_ITEM,
-          title: ehAtual ? 'Você já está nesta unidade' : `Trocar para ${unidade.sigla}`,
-          disabled: ehAtual ? 'disabled' : null,
-          onclick: ehAtual ? null : () => aoEscolher(unidade),
+          style: item.atual ? ESTILO_ITEM_ATUAL : ESTILO_ITEM,
+          title: item.atual ? 'Você já está nesta unidade' : `Trocar para ${item.sigla}`,
+          disabled: item.acionavel ? null : 'disabled',
+          onclick: item.acionavel ? () => aoEscolher(unidade) : null,
         },
         [
-          unidade.sigla,
-          unidade.descricao
-            ? el('span', { style: ESTILO_DESCRICAO, text: unidade.descricao })
-            : null,
+          item.sigla,
+          item.descricao ? el('span', { style: ESTILO_DESCRICAO, text: item.descricao }) : null,
         ],
       ),
     );
   }
+
+  const nota = notaDoPainel(itens);
+  if (nota) painel.appendChild(el('div', { style: ESTILO_NOTA, text: nota }));
 
   const caixa = ancora.getBoundingClientRect();
   painel.style.top = `${caixa.bottom + window.scrollY + 4}px`;
@@ -259,10 +290,21 @@ export default {
     'Depois que você passa uma vez pela tela de troca de unidade, clicar na unidade na barra do SEI abre a lista ali mesmo. O "↗" ao lado leva à tela de sempre. Não faz consulta nenhuma: usa a lista que já apareceu na sua tela.',
   padraoAtiva: true,
 
+  rotulosOpcoes: {
+    mostrarComUmaUnidade: 'Abrir a lista mesmo com uma unidade só',
+  },
+
+  opcoesPadrao: {
+    // Desligada porque, com uma unidade, a lista nao tem o que oferecer e o
+    // clique direto para a tela do SEI e mais util. Ligar serve para ver a
+    // lista funcionando sem ter acesso a duas unidades.
+    mostrarComUmaUnidade: false,
+  },
+
   telas: ['*'],
   frames: ['topo'],
 
-  setup() {
+  setup(ctx) {
     let vivo = true;
     const limpezas = [];
 
@@ -341,9 +383,11 @@ export default {
       const alvo = ev.target && ev.target.closest && ev.target.closest('a#lnkInfraUnidade');
       if (!alvo) return;
 
-      // Sem lista guardada, ou com uma unidade só, não há o que oferecer:
-      // deixa o SEI fazer o que sempre fez.
-      if (!guardadas || guardadas.length < 2) return;
+      // Sem lista guardada não há o que oferecer: deixa o SEI fazer o que
+      // sempre fez. Com uma unidade só, idem — a menos que a pessoa peça,
+      // que é como se vê a lista sem ter acesso a duas.
+      const minimo = ctx.opcoes.mostrarComUmaUnidade ? 1 : 2;
+      if (!guardadas || guardadas.length < minimo) return;
 
       ev.preventDefault();
       ev.stopImmediatePropagation();
