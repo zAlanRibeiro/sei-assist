@@ -21,7 +21,7 @@ sincroniza entre dispositivos.
 | O quê | Para quê | Por quanto tempo |
 | --- | --- | --- |
 | Histórico de atos seus (assinou, enviou, criou) | Montar o painel de histórico | Até você apagar |
-| Rascunho do editor | Recuperar texto se a sessão do SEI expirar | 3 dias, ou até salvar o documento |
+| Rascunho do editor (nunca de documento restrito) | Recuperar texto se a sessão do SEI expirar | 3 dias, ou até salvar o documento |
 | Estado do bloco de assinatura | Saber o que é novidade desde a última olhada | Substituído a cada consulta |
 | Preferências | Atalhos, intervalos, o que está ligado | Até você desinstalar |
 
@@ -41,6 +41,18 @@ do SEI expira em silêncio e leva junto o texto que você estava escrevendo.
 Limites deliberados: fica só no armazenamento local, expira em 3 dias, é apagado
 assim que o documento é salvo, guarda no máximo 20 rascunhos, e pode ser
 desligado por inteiro nas opções.
+
+**Documento restrito ou sigiloso não vira rascunho.** O armazenamento local não
+é cifrado, e o conteúdo desses documentos é justamente o que não deveria ficar
+em disco. Quando a extensão identifica o nível de acesso como restrito ou
+sigiloso, ela não guarda nada e avisa na tela — em vez de falhar em silêncio.
+
+Quando ela **não consegue identificar** o nível, o comportamento padrão é
+guardar, e a opção *"Só guardar rascunho quando o documento for público"* muda
+isso para não guardar. O padrão é esse porque a leitura do nível ainda não foi
+confirmada contra todas as telas do SEI: recusar tudo que não é reconhecido
+desligaria a recuperação de rascunho para quem depende dela. Quem prefere o
+lado seguro liga a opção.
 
 ### O que NUNCA é lido ou guardado
 

@@ -15,7 +15,8 @@ import { toast, confirmar } from '../../core/ui.js';
 import { log } from '../../core/log.js';
 import { formatarData } from './data.js';
 import { corpoDoTexto, idDoDocumento, secoes, textoDasSecoes, EDITOR } from './seletores.js';
-import { descartar, guardar, recuperar } from './rascunho.js';
+import { descartar, guardar, podeGuardar, recuperar } from './rascunho.js';
+import { diagnosticar, ehFechado, lerNivel } from './nivelAcesso.js';
 
 const ID_BOTAO = 'seix-editor-data';
 const INTERVALO_MS = 5000;
@@ -340,6 +341,7 @@ export default {
     cidade: 'Cidade no fecho do documento (ex.: Niterói)',
     formatoData: 'Formato da data (extenso ou curta)',
     guardarRascunho: 'Guardar rascunho do texto',
+    rascunhoSoPublicos: 'Só guardar rascunho quando o documento for público',
   },
 
   opcoesPadrao: {
@@ -350,6 +352,11 @@ export default {
     formatoData: 'extenso',
     // Desligavel porque e a unica parte da extensao que guarda conteudo.
     guardarRascunho: true,
+    // Documento restrito ou sigiloso nunca vira rascunho - isso nao e opcao.
+    // Esta aqui decide o caso em que NAO SE SABE o nivel: por padrao guarda,
+    // porque a deteccao ainda nao foi confirmada contra tela real e recusar
+    // tudo mataria a funcionalidade. Quem prefere o lado seguro liga.
+    rascunhoSoPublicos: false,
   },
 
   telas: ['editor'],
@@ -370,10 +377,38 @@ export default {
     montarBotao();
     limpezas.push(observar(document.body, montarBotao, { debounce: 500 }));
 
-    if (!ctx.opcoes.guardarRascunho) {
-      log.debug('rascunho desligado nas opcoes');
+    // O nivel de acesso e lido UMA vez, na entrada: ele nao muda enquanto o
+    // documento esta aberto no editor, e reler a cada gravacao so gastaria.
+    const nivel = lerNivel();
+    const permissao = podeGuardar({
+      nivel,
+      guardarRascunho: ctx.opcoes.guardarRascunho,
+      soPublicos: ctx.opcoes.rascunhoSoPublicos,
+    });
+
+    if (!permissao.pode) {
+      // Em voz alta, e nao no console: quem esta escrevendo precisa saber que
+      // nao ha rede embaixo. Silencio aqui ja foi o pior defeito desta parte.
+      if (ehFechado(permissao.motivo)) {
+        toast(
+          `Documento ${permissao.motivo}: o rascunho nao sera guardado.`,
+          { tipo: 'aviso', duracao: 6000 },
+        );
+      } else if (permissao.motivo === 'nivel-desconhecido') {
+        toast(
+          'Nao identifiquei o nivel de acesso deste documento; por sua opcao, ' +
+            'o rascunho nao sera guardado.',
+          { tipo: 'aviso', duracao: 6000 },
+        );
+        diagnosticar();
+      }
+      log.debug(`rascunho recusado: ${permissao.motivo}`);
       return () => limpezas.forEach((fn) => fn && fn());
     }
+
+    // Guardando sem saber o nivel: registra o que a tela mostra, para fechar
+    // essa lacuna com evidencia em vez de mais um chute.
+    if (nivel === 'desconhecido') diagnosticar();
     if (!idDocumento) {
       // Sem id nao ha chave estavel: guardar aqui seria guardar onde ninguem
       // vai procurar depois.

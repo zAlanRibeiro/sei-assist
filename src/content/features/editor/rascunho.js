@@ -14,11 +14,15 @@
  *   - some assim que o documento e salvo com sucesso;
  *   - da para desligar a funcionalidade inteira nas opcoes.
  *
+ * E, desde a auditoria: documento RESTRITO ou SIGILOSO nao vira rascunho. O
+ * conteudo desses e justamente o que nao deveria ficar em disco sem cifra.
+ *
  * As funcoes de decisao ficam puras e exportadas, para poderem ser testadas -
  * e porque errar em "quando descartar" apaga trabalho de alguem.
  */
 import { comContexto } from '../../core/runtime.js';
 import { log } from '../../core/log.js';
+import { DESCONHECIDO, ehFechado } from './nivelAcesso.js';
 
 const CHAVE = 'seix:rascunhos';
 
@@ -39,6 +43,30 @@ export const LIMITE = 20;
 export function chaveDoRascunho(idDocumento) {
   const id = String(idDocumento || '').trim();
   return id ? `doc:${id}` : null;
+}
+
+/**
+ * Este documento pode virar rascunho?
+ *
+ * Separada de `deveGuardar` de proposito: aquela pergunta "este TEXTO mudou",
+ * esta pergunta "este DOCUMENTO pode ser guardado". Uma e sobre eficiencia, a
+ * outra e sobre sigilo, e juntar as duas faria a segunda parecer detalhe.
+ *
+ * Devolve o motivo junto porque recusa silenciosa foi o pior defeito que esta
+ * extensao ja teve: quem escreve precisa saber que nao ha rede embaixo.
+ *
+ * O caso DESCONHECIDO e do usuario, nao meu. A deteccao do nivel ainda nao foi
+ * confirmada contra tela real (ver nivelAcesso.js), entao recusar tudo que nao
+ * reconheco mataria a funcionalidade para todo mundo, e aceitar tudo faria a
+ * protecao existir so no papel. Quem quiser o lado seguro liga `soPublicos`.
+ *
+ * @returns {{pode: boolean, motivo: string}}
+ */
+export function podeGuardar({ nivel, guardarRascunho = true, soPublicos = false } = {}) {
+  if (!guardarRascunho) return { pode: false, motivo: 'desligado' };
+  if (ehFechado(nivel)) return { pode: false, motivo: nivel };
+  if (nivel === DESCONHECIDO && soPublicos) return { pode: false, motivo: 'nivel-desconhecido' };
+  return { pode: true, motivo: nivel || DESCONHECIDO };
 }
 
 /**
