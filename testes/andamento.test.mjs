@@ -226,80 +226,40 @@ test('criacao de processo nao e confundida com criacao de documento', () => {
 });
 
 /* ------------------------------------------------------------------------ *
- * Leitura COMPLETA da tela
+ * Achar a tabela do andamento
  *
- * O parser acima só devolve as linhas que reconhece — é o que o histórico
- * precisa. Quem quer LER o andamento precisa das outras também, e é aí que
- * mora o risco: aceitar qualquer linha com data significa aceitar linha de
- * qualquer tabela da página. Os testes abaixo cercam justamente isso.
+ * A faixa da trajetoria e pendurada logo antes dela. Escolher a tabela errada
+ * poe a faixa no meio do layout do SEI - ou nem aparece.
  * ------------------------------------------------------------------------ */
 
-const { lerLinhaQualquer, lerAndamentoCompleto, acharTabela } = await import(
-  '../src/content/core/andamento.js'
-);
+const { acharTabela } = await import('../src/content/core/andamento.js');
 const { elemento, instalarDocumento } = await import('./domFalso.mjs');
 
 const linhaDe = (celulas) => elemento('tr', {}, celulas.map((c) => elemento('td', {}, [c])));
 
-test('linha de tipo desconhecido é lida mesmo assim', () => {
-  const e = lerLinhaQualquer([
-    '05/07/2026 10:00',
-    'NIT/NITTRANS/DIVEST',
-    'alan.ribeiro',
-    'Conclusão do processo na unidade NIT/NITTRANS/DIVEST',
-  ]);
-
-  assert.equal(e.tipo, null, 'o tipo fica nulo: a extensão não entendeu');
-  assert.equal(e.unidade, 'NIT/NITTRANS/DIVEST');
-  assert.equal(e.usuario, 'alan.ribeiro');
-  assert.equal(e.descricao, 'Conclusão do processo na unidade NIT/NITTRANS/DIVEST');
-});
-
-test('linha conhecida continua saindo com o tipo', () => {
-  assert.equal(lerLinhaQualquer(REMETIDO).tipo, 'remetido');
-});
-
-test('linha sem data continua fora, reconhecida ou não', () => {
-  // É o que descarta cabeçalho e rodapé sem precisar identificá-los.
-  assert.equal(lerLinhaQualquer(['Data/Hora', 'Unidade', 'Usuário', 'Descrição']), null);
-});
-
-test('só lê a tabela do andamento, não a página inteira', () => {
-  // A tela do SEI tem outras tabelas, e algumas têm data. Aceitar qualquer
-  // linha com data, na página toda, encheria o histórico de lixo.
+test('a tabela do andamento e achada pelo conteudo, nao por id', () => {
+  // A tela tem outras tabelas, e algumas tem data. Quem decide e a contagem de
+  // linhas que o parser reconheceu.
   const raiz = elemento('div', {}, [
     elemento('table', { id: 'outra' }, [
-      linhaDe(['01/07/2026 08:00', 'Relatório mensal de alguma outra coisa']),
+      linhaDe(['01/07/2026 08:00', 'Relatorio mensal de alguma outra coisa']),
     ]),
     elemento('table', { id: 'andamento' }, [
-      linhaDe(['Data/Hora', 'Unidade', 'Usuário', 'Descrição']),
+      linhaDe(['Data/Hora', 'Unidade', 'Usuario', 'Descricao']),
       linhaDe(['02/07/2026 16:59', 'NIT/A', 'alan', 'Processo remetido pela unidade NIT/A']),
       linhaDe(['02/07/2026 17:00', 'NIT/B', 'maria', 'Processo recebido na unidade NIT/B']),
-      linhaDe(['03/07/2026 09:00', 'NIT/B', 'maria', 'Conclusão do processo na unidade NIT/B']),
     ]),
   ]);
   instalarDocumento(raiz);
 
   assert.equal(acharTabela(raiz).getAttribute('id'), 'andamento');
-
-  const eventos = lerAndamentoCompleto({ body: raiz, querySelectorAll: (s) => raiz.querySelectorAll(s) });
-  assert.equal(eventos.length, 3);
-  assert.deepEqual(eventos.map((e) => e.tipo), ['remetido', 'recebido', null]);
-  assert.equal(
-    eventos.some((e) => e.descricao.includes('Relatório mensal')),
-    false,
-    'linha de outra tabela não entra',
-  );
 });
 
-test('tela sem andamento nenhum não devolve nada', () => {
+test('tela sem andamento nenhum nao devolve tabela', () => {
   const raiz = elemento('div', {}, [
     elemento('table', {}, [linhaDe(['01/07/2026 08:00', 'Qualquer coisa'])]),
   ]);
   instalarDocumento(raiz);
 
-  assert.deepEqual(
-    lerAndamentoCompleto({ body: raiz, querySelectorAll: (s) => raiz.querySelectorAll(s) }),
-    [],
-  );
+  assert.equal(acharTabela(raiz), null);
 });

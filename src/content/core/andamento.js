@@ -70,7 +70,6 @@ export const ANDAMENTO = {
   linhas: ['table tr', 'tr'],
 };
 
-
 /** '02/07/2026' + '16:59' -> ISO local, rejeitando data impossivel. */
 function paraIso(data, hora) {
   const [dia, mes, ano] = data.split('/').map(Number);
@@ -90,8 +89,8 @@ const limpar = (texto) => (texto || '').replace(/\s+/g, ' ').trim();
 /**
  * A data/hora da linha, venha ela em que celula vier.
  *
- * Fica separada porque duas leituras precisam dela: a que exige um padrao
- * conhecido e a que aceita qualquer linha. Duas copias divergiriam.
+ * Fica separada porque a busca nao depende da posicao da coluna: qualquer
+ * celula pode ser a da data, e o laco que descobre isso merece nome.
  */
 function acharQuando(textos) {
   for (const t of textos) {
@@ -101,6 +100,12 @@ function acharQuando(textos) {
     if (iso) return iso;
   }
   return null;
+}
+
+/** As celulas de uma linha; a linha inteira, se ela nao tiver celulas. */
+function celulasDe(linha) {
+  const celulas = qsa('td, th', linha).map((c) => c.textContent);
+  return celulas.length ? celulas : [linha.textContent];
 }
 
 /** A sigla de unidade se distingue pela forma: caixa alta com barra. */
@@ -171,8 +176,7 @@ export function lerAndamentos(doc = document) {
       if (vistas.has(linha)) continue;
       vistas.add(linha);
 
-      const celulas = qsa('td, th', linha).map((c) => c.textContent);
-      const evento = lerLinha(celulas.length ? celulas : [linha.textContent]);
+      const evento = lerLinha(celulasDe(linha));
       if (evento) eventos.push(evento);
     }
     if (eventos.length) break; // o primeiro seletor que produziu algo basta
@@ -232,23 +236,12 @@ export function extrairEnvios(eventos) {
 }
 
 /* ------------------------------------------------------------------------ *
- * Leitura COMPLETA da tela
+ * Onde a tela mora
  *
- * O que esta acima le so as linhas que casam com um padrao conhecido, porque
- * o historico so tem uso para envio e criacao. Mas o andamento tem muito mais
- * linha que isso - conclusao, reabertura, assinatura, acesso externo, inclusao
- * em bloco - e quem quer LER o andamento quer todas elas.
- *
- * Por isso a leitura completa e outra funcao, e nao um parametro: ela devolve
- * tambem o que nao entendeu, com `tipo: null` e a frase do SEI intacta. Quem
- * resume traduz o que reconhece e repete o resto.
+ * Achar a tabela do andamento e util para quem quer pendurar algo nela - a
+ * faixa da trajetoria entra logo antes. Fica aqui, e nao na feature, porque
+ * depende do parser: e por ele que a tabela e reconhecida.
  * ------------------------------------------------------------------------ */
-
-/** As celulas de uma linha; a linha inteira, se ela nao tiver celulas. */
-function celulasDe(linha) {
-  const celulas = qsa('td, th', linha).map((c) => c.textContent);
-  return celulas.length ? celulas : [linha.textContent];
-}
 
 /**
  * A tabela do andamento.
@@ -277,60 +270,4 @@ export function acharTabela(doc = document) {
     }
   }
   return melhor;
-}
-
-/**
- * Uma linha qualquer do andamento, reconhecida ou nao.
- *
- * Quando o padrao e conhecido, devolve exatamente o que `lerLinha` devolveria.
- * Quando nao e, guarda o que da para guardar por FORMA: a sigla e caixa alta
- * com barra, o login nao tem espaco, e a descricao e a frase - a celula mais
- * comprida do que sobrou.
- *
- * A unica exigencia e ter data e hora. Linha de cabecalho e de rodape nao tem,
- * e caem fora sozinhas.
- */
-export function lerLinhaQualquer(celulas) {
-  const textos = celulas.map(limpar).filter(Boolean);
-  if (!textos.length) return null;
-
-  const quando = acharQuando(textos);
-  if (!quando) return null;
-
-  const conhecida = lerLinha(celulas);
-  if (conhecida) return conhecida;
-
-  const restantes = textos.filter((t) => !ANDAMENTO.dataHora.test(t));
-  const unidade = restantes.find(ehUnidade) || null;
-  const sobra = restantes.filter((t) => t !== unidade);
-
-  const descricao = sobra.reduce((a, b) => (b.length > a.length ? b : a), '');
-  if (!descricao) return null;
-
-  const usuario = sobra.find((t) => t !== descricao && !/\s/.test(t) && t.length <= 60) || null;
-
-  return { quando, tipo: null, unidade, documento: null, usuario, descricao };
-}
-
-/**
- * O andamento inteiro, do mais antigo ao mais novo.
- *
- * So le dentro da tabela do andamento. `lerAndamentos` varre o documento todo,
- * o que e seguro la porque exige um padrao conhecido; aqui, que aceita
- * qualquer linha com data, varrer o documento traria linha de outra tabela.
- */
-export function lerAndamentoCompleto(doc = document) {
-  const corpo = (doc.body && doc.body.textContent) || '';
-  if (!ANDAMENTO.marca.test(corpo)) return [];
-
-  const tabela = acharTabela(doc);
-  if (!tabela) return [];
-
-  const eventos = [];
-  for (const linha of qsa('tr', tabela)) {
-    const evento = lerLinhaQualquer(celulasDe(linha));
-    if (evento) eventos.push(evento);
-  }
-
-  return eventos.sort((a, b) => (a.quando < b.quando ? -1 : 1));
 }
