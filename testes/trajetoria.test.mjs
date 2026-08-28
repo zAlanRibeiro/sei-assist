@@ -17,7 +17,8 @@ const {
   duracaoLegivel,
   siglaCurta,
   emUmaLinha,
-  paradoHa,
+  abertas,
+  selo,
 } = await import('../src/content/features/trajetoria/trajetoria.js');
 
 const DIVCC = 'NIT/NITTRANS/DIVCC';
@@ -104,7 +105,7 @@ test('remetido sem recebido: o processo não está em lugar nenhum', () => {
 
   assert.equal(paradas.length, 1);
   assert.equal(paradas[0].atual, false);
-  assert.equal(paradoHa(paradas, AGORA), null);
+  assert.deepEqual(abertas(paradas), []);
 });
 
 test('eventos sem unidade são ignorados', () => {
@@ -152,12 +153,12 @@ test('a linha da trajetória usa as siglas curtas', () => {
   assert.equal(emUmaLinha(paradas), 'DIVCC → DEPOT');
 });
 
-test('paradoHa mede desde a chegada, não desde a criação', () => {
+test('o tempo parado conta desde a chegada, não desde a criação', () => {
   const paradas = trajetoria(
     [criado(DIVCC, 1), remetido(DIVCC, 4), recebido(DIVEST, 25)],
     AGORA,
   );
-  assert.equal(duracaoLegivel(paradoHa(paradas, AGORA)), '5 dias');
+  assert.equal(duracaoLegivel(abertas(paradas)[0].duracaoMs), '5 dias');
 });
 
 test('duas passagens pela mesma unidade fecham cada uma no seu tempo', () => {
@@ -306,4 +307,143 @@ test('coluna igual à origem não vira destino', () => {
   ]);
 
   assert.equal(envio.destino, null);
+});
+
+/* ------------------------------------------------------ envio simultâneo */
+
+/**
+ * No SEI um processo pode ser enviado para várias unidades de uma vez, e fica
+ * aberto em todas. O andamento registra uma linha de "remetido" por destino,
+ * no mesmo instante, e cada unidade recebe quando abre — dias depois, cada uma
+ * no seu tempo.
+ */
+const PARALELO = [
+  criado(DIVCC, 1),
+  remetido(DIVCC, 3),
+  remetido(DIVCC, 3), // a segunda linha, do segundo destino
+  recebido(DEPOT, 4),
+  recebido(DIVEST, 8),
+];
+
+test('duas unidades que recebem juntas aparecem lado a lado', () => {
+  // "DEPOT → DIVEST" diria que uma veio depois da outra. Vieram juntas.
+  const paradas = trajetoria(PARALELO, AGORA);
+
+  assert.equal(emUmaLinha(paradas, AGORA), 'DIVCC → DEPOT + DIVEST');
+});
+
+test('o segundo remetido do mesmo envio não fecha nada por engano', () => {
+  // A parada da origem já foi fechada pelo primeiro. O segundo não encontra
+  // parada aberta daquela unidade e passa reto — que é o certo.
+  const paradas = trajetoria(PARALELO, AGORA);
+
+  assert.equal(paradas.length, 3);
+  assert.equal(duracaoLegivel(paradas[0].duracaoMs), '2 dias', 'a origem fecha no envio');
+});
+
+test('com envio simultâneo o processo está em mais de um lugar', () => {
+  const emAberto = abertas(trajetoria(PARALELO, AGORA));
+
+  assert.equal(emAberto.length, 2);
+  assert.deepEqual(emAberto.map((p) => siglaCurta(p.unidade)), ['DEPOT', 'DIVEST']);
+  // Cada uma com o seu relógio: uma recebeu no dia 4, a outra no dia 8.
+  assert.equal(duracaoLegivel(emAberto[0].duracaoMs), '26 dias');
+  assert.equal(duracaoLegivel(emAberto[1].duracaoMs), '22 dias');
+});
+
+test('trajetória sequencial não vira grupo', () => {
+  // Aqui o DEPOT devolveu antes de a DIVEST receber: são momentos distintos.
+  const paradas = trajetoria(
+    [criado(DIVCC, 1), remetido(DIVCC, 3), recebido(DEPOT, 4), remetido(DEPOT, 8), recebido(DIVEST, 9)],
+    AGORA,
+  );
+
+  assert.equal(emUmaLinha(paradas, AGORA), 'DIVCC → DEPOT → DIVEST');
+});
+
+test('três em paralelo formam um grupo só', () => {
+  // Todas abertas ao mesmo tempo: um grupo só, não três momentos.
+  const paradas = trajetoria(
+    [
+      criado(DIVCC, 1),
+      remetido(DIVCC, 3),
+      remetido(DIVCC, 3),
+      remetido(DIVCC, 3),
+      recebido(DEPOT, 4),
+      recebido('NIT/NITTRANS/OUTRA', 5),
+      remetido(DEPOT, 6),
+      recebido(DIVEST, 7),
+    ],
+    AGORA,
+  );
+
+  assert.equal(emUmaLinha(paradas, AGORA), 'DIVCC → DEPOT + OUTRA + DIVEST');
+});
+
+test('entra no grupo quem conviveu com qualquer um dele, não só com o último', () => {
+  // DEPOT ficou do dia 4 ao 12. OUTRA passou pelo meio, do 5 ao 6. A DIVEST
+  // recebeu no dia 8: não conviveu com a OUTRA, que já tinha devolvido, mas
+  // conviveu com o DEPOT. São três unidades do mesmo envio, e a linha tem de
+  // mostrar isso — comparar só com a parada anterior partiria o grupo.
+  const paradas = trajetoria(
+    [
+      criado(DIVCC, 1),
+      remetido(DIVCC, 3),
+      remetido(DIVCC, 3),
+      remetido(DIVCC, 3),
+      recebido(DEPOT, 4),
+      recebido('NIT/NITTRANS/OUTRA', 5),
+      remetido('NIT/NITTRANS/OUTRA', 6),
+      recebido(DIVEST, 8),
+      remetido(DEPOT, 12),
+    ],
+    AGORA,
+  );
+
+  assert.deepEqual(paradas.map((p) => siglaCurta(p.unidade)), ['DIVCC', 'DEPOT', 'OUTRA', 'DIVEST']);
+  assert.equal(emUmaLinha(paradas, AGORA), 'DIVCC → DEPOT + OUTRA + DIVEST');
+});
+
+test('o envio fecha a parada certa mesmo não sendo a última', () => {
+  // O DEPOT devolve no dia 12, quando a DIVEST já está aberta depois dele na
+  // lista. Olhar só o fim da lista fecharia a parada errada.
+  const paradas = trajetoria(
+    [
+      criado(DIVCC, 1),
+      remetido(DIVCC, 3),
+      remetido(DIVCC, 3),
+      recebido(DEPOT, 4),
+      recebido(DIVEST, 8),
+      remetido(DEPOT, 12),
+    ],
+    AGORA,
+  );
+
+  const depot = paradas.find((p) => p.unidade === DEPOT);
+  const divest = paradas.find((p) => p.unidade === DIVEST);
+  assert.equal(depot.atual, false, 'o DEPOT devolveu');
+  assert.equal(divest.atual, true, 'a DIVEST continua com ele');
+  assert.equal(duracaoLegivel(depot.duracaoMs), '8 dias');
+});
+
+/* ------------------------------------------------------------------ o selo */
+
+test('com uma unidade só, o selo nomeia e data', () => {
+  const marca = selo(trajetoria([criado(DIVCC, 1), remetido(DIVCC, 4), recebido(DEPOT, 4)], AGORA));
+
+  assert.equal(marca.texto, 'aqui há 26 dias');
+  assert.equal(marca.detalhe, 'Sem sair da DEPOT desde 04/06/2026');
+});
+
+test('com envio simultâneo, o selo conta e detalha uma por linha', () => {
+  // Foi este o erro: o selo media a primeira aberta e o título nomeava a
+  // última. Com duas abertas não existe "aqui" — existem duas.
+  const marca = selo(trajetoria(PARALELO, AGORA));
+
+  assert.equal(marca.texto, 'em 2 unidades');
+  assert.deepEqual(marca.detalhe.split('\n'), ['DEPOT há 26 dias', 'DIVEST há 22 dias']);
+});
+
+test('processo que saiu e ainda não chegou não tem selo', () => {
+  assert.equal(selo(trajetoria([criado(DIVCC, 1), remetido(DIVCC, 4)], AGORA)), null);
 });

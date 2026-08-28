@@ -16,7 +16,7 @@
 import { el } from '../../core/dom.js';
 import { log } from '../../core/log.js';
 import { acharTabela, lerAndamentos } from '../../core/andamento.js';
-import { duracaoLegivel, emUmaLinha, paradoHa, siglaCurta, trajetoria } from './trajetoria.js';
+import { emUmaLinha, selo, trajetoria } from './trajetoria.js';
 
 const ID = 'seix-trajetoria';
 
@@ -64,25 +64,16 @@ const ESTILO_PARADO = {
 };
 
 function montarFaixa(paradas, agora) {
-  const parado = paradoHa(paradas, agora);
-  const atual = paradas[paradas.length - 1];
+  const marca = selo(paradas);
 
   return el('div', { id: ID, style: ESTILO }, [
     el('span', {
       style: ESTILO_ROTA,
       // A sigla inteira fica aqui, para quem precisar do prefixo do órgão.
       title: paradas.map((p) => p.unidade).join('  →  '),
-      text: emUmaLinha(paradas),
+      text: emUmaLinha(paradas, agora),
     }),
-    parado === null
-      ? null
-      : el('span', {
-          style: ESTILO_PARADO,
-          title: `Sem sair da ${siglaCurta(atual.unidade)} desde ${new Date(
-            atual.desde,
-          ).toLocaleDateString('pt-BR')}`,
-          text: `aqui há ${duracaoLegivel(parado)}`,
-        }),
+    marca ? el('span', { style: ESTILO_PARADO, title: marca.detalhe, text: marca.texto }) : null,
   ]);
 }
 
@@ -108,7 +99,8 @@ export default {
       // quem decide é o conteúdo.
       if (!eventos.length) return;
 
-      const paradas = trajetoria(eventos);
+      const agora = Date.now();
+      const paradas = trajetoria(eventos, agora);
       if (!paradas.length) {
         log.debug('andamento lido, mas sem tramitação para resumir');
         return;
@@ -117,7 +109,7 @@ export default {
       const tabela = acharTabela();
       if (!tabela || !tabela.parentElement) return;
 
-      tabela.parentElement.insertBefore(montarFaixa(paradas, Date.now()), tabela);
+      tabela.parentElement.insertBefore(montarFaixa(paradas, agora), tabela);
       log.debug(`trajetoria: ${paradas.length} parada(s)`);
     };
 
