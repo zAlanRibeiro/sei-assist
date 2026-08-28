@@ -79,10 +79,10 @@ perguntado.
 > arquivos expostos são apenas os módulos da própria extensão, sem dado
 > nenhum.
 >
-> Como o padrão não pode ser apertado, a exposição usa `use_dynamic_url`:
-> a URL dos módulos muda a cada sessão, então um site de terceiros não
-> consegue sondar um endereço fixo para descobrir se a extensão está
-> instalada. É por isso que o `minimum_chrome_version` é 104.
+> `use_dynamic_url` seria a proteção certa contra sondagem por outro site,
+> mas foi testada e revertida: o `import()` dinâmico da URL com GUID falha,
+> e a extensão inteira deixa de carregar. Está registrado em
+> `testes/manifest.test.mjs`.
 
 ## Declaração de uso de dados
 

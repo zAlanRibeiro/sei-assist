@@ -112,32 +112,29 @@ test('os recursos expostos cobrem o que o carregador importa', () => {
 
 /* ------------------------------------------------ impressão digital */
 
-test('os recursos expostos usam URL dinâmica', () => {
-  // Sem isto, QUALQUER site que você visitar pode pedir
-  // chrome-extension://<id>/src/content/core/dom.js e ver se responde. Depois
-  // de publicada, o id é fixo e público — então a sondagem funciona sempre, e
-  // quem detecta deduz que a pessoa usa SEI, ou seja, é servidora pública.
-  //
-  // `matches` não resolve: o Chrome exige caminho "/*" ali (ver o primeiro
-  // teste deste arquivo), e o host não dá para restringir porque cada órgão
-  // hospeda o SEI no próprio domínio. `use_dynamic_url` faz a URL mudar a cada
-  // sessão, e a sondagem por URL fixa deixa de funcionar.
-  for (const recurso of manifest.web_accessible_resources) {
-    assert.equal(
-      recurso.use_dynamic_url,
-      true,
-      'exposição sem URL dinâmica: qualquer site consegue detectar a extensão',
-    );
-  }
-});
-
-test('o Chrome mínimo suporta URL dinâmica', () => {
-  // use_dynamic_url chegou no Chrome 104. Declarar menos que isso deixaria a
-  // extensão instalável onde a proteção não existe — e sem aviso nenhum.
-  const minimo = Number.parseInt(manifest.minimum_chrome_version, 10);
-  assert.ok(Number.isInteger(minimo), 'minimum_chrome_version precisa ser um número');
-  assert.ok(minimo >= 104, `minimum_chrome_version ${minimo} é anterior ao use_dynamic_url`);
-});
+/**
+ * TENTADO E REVERTIDO: use_dynamic_url nao funciona nesta extensao.
+ *
+ * O problema e real: com URL estatica, qualquer site pode pedir
+ * chrome-extension://<id>/src/content/core/dom.js e ver se responde - e, com
+ * o id fixo de uma extensao publicada, descobrir que a pessoa usa SEI.
+ *
+ * `use_dynamic_url: true` seria a resposta certa, e o Chrome ate devolve a URL
+ * dinamica em getURL(). Mas o import() dinamico dela falha:
+ *
+ *   TypeError: Failed to fetch dynamically imported module:
+ *   chrome-extension://1caf7289-.../src/content/main.js
+ *
+ * Ou seja: getURL() entrega a URL com o GUID de sessao, e o fetch do modulo
+ * nao passa. O carregamento inteiro da extensao depende desse import (ver
+ * loader.js), entao a extensao simplesmente nao sobe.
+ *
+ * A saida de verdade seria nao precisar de web_accessible_resources: um unico
+ * arquivo empacotado em content_scripts, sem import() em tempo de execucao.
+ * Isso exige um passo de build que o projeto nao tem.
+ *
+ * Se alguem tentar de novo: teste NO NAVEGADOR antes de commitar.
+ */
 
 test('não expomos o que ninguém carrega em tempo de execução', () => {
   // Todo caminho exposto é um alvo de sondagem a mais. Os ícones vêm de
