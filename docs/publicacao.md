@@ -63,11 +63,13 @@ O formulário pede uma frase por permissão. Estas respondem ao que é perguntad
 **Host permissions**
 > Nenhuma é solicitada.
 
-**Padrão de correspondência `*://*/sei/*`**
+**Padrão de correspondência `*://*/sei/controlador.php*`**
 > Cada órgão hospeda o SEI no próprio domínio (sei.orgao.gov.br,
-> processo.orgao.gov.br etc.). Não existe um domínio único, então o padrão
-> precisa cobrir o caminho `/sei/` em qualquer host. A extensão verifica se a
-> página é realmente o SEI antes de agir.
+> processo.orgao.gov.br etc.), e há instalações em intranet, sem domínio
+> público. Não existe um host comum, então o padrão precisa aceitar qualquer
+> um — mas ele não aceita qualquer *caminho*: aponta para o
+> `controlador.php`, por onde passa toda tela do SEI e nada mais. A extensão
+> ainda verifica se a página é realmente o SEI antes de agir.
 
 Essa última costuma ser a pergunta do revisor. Vale responder antes de ser
 perguntado.
@@ -112,7 +114,7 @@ apagado ao salvar, desligável).
 
 ## O que esperar da revisão
 
-O padrão amplo (`*://*/sei/*`) e o "Sim" em conteúdo de site costumam gerar
+O host curinga (`*://*/sei/controlador.php*`) e o "Sim" em conteúdo de site costumam gerar
 pedido de esclarecimento. As respostas acima cobrem os dois. A revisão leva de
 alguns dias a duas semanas.
 

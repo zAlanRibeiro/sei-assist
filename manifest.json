@@ -35,7 +35,7 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*/sei/*"
+        "*://*/sei/controlador.php*"
       ],
       "css": [
         "src/styles/content.css"
@@ -45,7 +45,7 @@
     },
     {
       "matches": [
-        "*://*/sei/*"
+        "*://*/sei/controlador.php*"
       ],
       "js": [
         "src/content/loader.js"
