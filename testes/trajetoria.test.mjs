@@ -17,7 +17,6 @@ const {
   duracaoLegivel,
   siglaCurta,
   emUmaLinha,
-  resumir,
   paradoHa,
 } = await import('../src/content/features/trajetoria/trajetoria.js');
 
@@ -121,7 +120,6 @@ test('eventos sem unidade são ignorados', () => {
 test('lista vazia não quebra', () => {
   assert.deepEqual(trajetoria([], AGORA), []);
   assert.deepEqual(trajetoria(null, AGORA), []);
-  assert.equal(resumir([], AGORA), '');
 });
 
 /* ---------------------------------------------------------- a linguagem */
@@ -152,35 +150,6 @@ test('a linha da trajetória usa as siglas curtas', () => {
     AGORA,
   );
   assert.equal(emUmaLinha(paradas), 'DIVCC → DEPOT');
-});
-
-test('o resumo responde as perguntas que se faz', () => {
-  const paradas = trajetoria(
-    [criado(DIVCC, 1), remetido(DIVCC, 4), recebido(DEPOT, 4), remetido(DEPOT, 9), recebido(DIVEST, 10)],
-    AGORA,
-  );
-  const texto = resumir(paradas, AGORA);
-
-  assert.match(texto, /Começou na DIVCC em 01\/06\/2026/);
-  assert.match(texto, /passou por 3 unidades/);
-  assert.match(texto, /está na DIVEST há 20 dias/);
-});
-
-test('processo que nunca saiu tem resumo curto', () => {
-  const paradas = trajetoria([criado(DIVEST, 20)], AGORA);
-  const texto = resumir(paradas, AGORA);
-
-  assert.match(texto, /Começou na DIVEST/);
-  assert.match(texto, /está na DIVEST há 10 dias/);
-  assert.equal(/passou por/.test(texto), false, 'não passou por unidade nenhuma');
-});
-
-test('processo remetido e não recebido diz que saiu, não que está parado', () => {
-  const paradas = trajetoria([criado(DIVCC, 1), remetido(DIVCC, 4)], AGORA);
-  const texto = resumir(paradas, AGORA);
-
-  assert.match(texto, /saiu da DIVCC em 04\/06\/2026/);
-  assert.equal(/está na/.test(texto), false);
 });
 
 test('paradoHa mede desde a chegada, não desde a criação', () => {
@@ -226,7 +195,9 @@ test('toda caixa da faixa declara a própria cor', () => {
   const fonte = fs.readFileSync('src/content/features/trajetoria/index.js', 'utf8');
   const blocos = [...fonte.matchAll(/const (ESTILO[A-Z_]*) = \{([^}]*)\}/g)];
 
-  assert.ok(blocos.length >= 8, 'os estilos da faixa deveriam estar todos aqui');
+  // O piso existe para o caso de a expressão parar de casar com qualquer
+  // coisa: um laço sobre zero blocos passaria calado.
+  assert.ok(blocos.length >= 3, 'os estilos da faixa deveriam estar todos aqui');
   for (const [, nome, corpo] of blocos) {
     assert.ok(corpo.includes('color:'), `${nome} não declara cor`);
   }

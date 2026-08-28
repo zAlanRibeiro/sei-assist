@@ -106,52 +106,6 @@ export function emUmaLinha(paradas) {
   return (paradas || []).map((p) => siglaCurta(p.unidade)).join(' → ');
 }
 
-/** Data no formato de quem lê: 27/08/2026 */
-function dataCurta(iso) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const dois = (n) => String(n).padStart(2, '0');
-  return `${dois(d.getDate())}/${dois(d.getMonth() + 1)}/${d.getFullYear()}`;
-}
-
-/**
- * O andamento resumido numa frase.
- *
- * É a parte "linguagem mais legível" do pedido: em vez de uma tabela, a
- * resposta às perguntas que se faz de fato.
- */
-export function resumir(paradas, agora = Date.now()) {
-  const lista = paradas || [];
-  if (!lista.length) return '';
-
-  const primeira = lista[0];
-  const ultima = lista[lista.length - 1];
-
-  const partes = [];
-  partes.push(`Começou na ${siglaCurta(primeira.unidade)} em ${dataCurta(primeira.desde)}`);
-
-  if (lista.length > 1) {
-    const unidades = new Set(lista.map((p) => p.unidade));
-    partes.push(
-      unidades.size === 1
-        ? 'voltou para a mesma unidade'
-        : `passou por ${unidades.size} unidades`,
-    );
-  }
-
-  const tempo = duracaoLegivel(
-    ultima.atual ? agora - new Date(ultima.desde).getTime() : ultima.duracaoMs,
-  );
-
-  partes.push(
-    ultima.atual
-      ? `está na ${siglaCurta(ultima.unidade)} há ${tempo}`
-      : `saiu da ${siglaCurta(ultima.unidade)} em ${dataCurta(ultima.ate)}`,
-  );
-
-  return `${partes.join(', ')}.`;
-}
-
 /**
  * Quanto tempo o processo está parado onde está.
  *
