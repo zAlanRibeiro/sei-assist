@@ -1,16 +1,23 @@
 /**
  * Feature: trajetória do processo.
  *
- * Põe, no topo da tela "Consultar Andamento", uma faixa que responde em uma
- * linha o que a tabela abaixo responde em dezenas: por onde o processo passou
- * e há quanto tempo ele está parado onde está.
+ * Põe, no topo da tela "Consultar Andamento", duas coisas que a tabela abaixo
+ * tem mas não entrega:
+ *
+ *   1. a rota em uma linha, e há quanto tempo o processo está parado onde está;
+ *   2. o andamento INTEIRO reescrito em linguagem normal, do mais antigo ao
+ *      mais recente.
+ *
+ * A tabela do SEI continua ali, intacta. Isto é leitura, não substituição — e
+ * é de propósito: quando a extensão não entender uma linha, ela repete a frase
+ * do sistema, e quem quiser conferir tem o original logo abaixo.
  *
  * Não faz requisição nenhuma: os dados já estão na tela que a pessoa abriu.
- * Só lê e resume.
  */
-import { el, qsa } from '../../core/dom.js';
+import { el } from '../../core/dom.js';
 import { log } from '../../core/log.js';
-import { lerAndamentos } from '../../core/andamento.js';
+import { acharTabela, lerAndamentoCompleto } from '../../core/andamento.js';
+import { dataHoraLegivel, narrar } from './narrativa.js';
 import {
   duracaoLegivel,
   emUmaLinha,
@@ -63,27 +70,60 @@ const ESTILO_PARADO = {
   fontWeight: '700',
 };
 
-/**
- * A tabela do andamento, para pendurar a faixa logo antes dela.
- *
- * Achada pelas linhas que o parser reconheceu, e não por um seletor novo:
- * nunca vi o HTML desta tela, e derivar do que já funciona é mais seguro que
- * inventar um id.
- */
-function tabelaDoAndamento() {
-  for (const linha of qsa('tr')) {
-    const tabela = linha.closest ? linha.closest('table') : null;
-    if (tabela) return tabela;
-  }
-  return null;
-}
+const ESTILO_ABRIR = {
+  marginTop: '8px',
+  cursor: 'pointer',
+  fontWeight: '600',
+  color: 'var(--seix-cor-primaria-realce, #1351b4)',
+  listStyle: 'none',
+};
 
-function montarFaixa(paradas, agora) {
+/**
+ * O histórico rola dentro da própria faixa. Sem isto, um processo de anos
+ * empurraria a tabela do SEI para fora da tela — e a tabela é o original.
+ */
+const ESTILO_LISTA = {
+  margin: '8px 0 0',
+  padding: '0',
+  listStyle: 'none',
+  maxHeight: '320px',
+  overflowY: 'auto',
+  borderTop: '1px solid var(--seix-cor-borda-suave, #d0d5dd)',
+};
+
+const ESTILO_ITEM = {
+  display: 'flex',
+  gap: '10px',
+  alignItems: 'baseline',
+  padding: '4px 2px',
+  borderBottom: '1px solid var(--seix-cor-borda-suave, #e4e7ec)',
+};
+
+const ESTILO_QUANDO = {
+  flex: '0 0 auto',
+  minWidth: '108px',
+  fontVariantNumeric: 'tabular-nums',
+  color: 'var(--seix-cor-texto-fraco, #667085)',
+  fontSize: '12px',
+};
+
+const ESTILO_INTERVALO = {
+  flex: '0 0 auto',
+  marginLeft: 'auto',
+  paddingLeft: '10px',
+  color: 'var(--seix-cor-texto-fraco, #667085)',
+  fontSize: '11px',
+  whiteSpace: 'nowrap',
+};
+
+/** Cabeçalho: a rota, o selo de tempo parado e a frase de resumo. */
+function montarResumo(paradas, agora) {
   const parado = paradoHa(paradas, agora);
   const atual = paradas[paradas.length - 1];
 
   const linha = el('span', {
     style: ESTILO_LINHA,
+    // A sigla inteira fica aqui, para quem precisar do prefixo do órgão.
     title: paradas.map((p) => p.unidade).join('  →  '),
     text: emUmaLinha(paradas),
   });
@@ -100,9 +140,29 @@ function montarFaixa(paradas, agora) {
     );
   }
 
-  return el('div', { id: ID, style: ESTILO }, [
-    linha,
-    el('span', { style: ESTILO_RESUMO, text: resumir(paradas, agora) }),
+  return [linha, el('span', { style: ESTILO_RESUMO, text: resumir(paradas, agora) })];
+}
+
+/** O andamento inteiro, uma linha por registro. */
+function montarHistorico(registros) {
+  const itens = registros.map((r) =>
+    el('li', { style: ESTILO_ITEM }, [
+      el('span', { style: ESTILO_QUANDO, text: dataHoraLegivel(r.quando) }),
+      el('span', { style: { flex: '1 1 auto' }, text: r.texto }),
+      r.intervalo ? el('span', { style: ESTILO_INTERVALO, text: `${r.intervalo} depois` }) : null,
+    ]),
+  );
+
+  return el('details', { open: 'open' }, [
+    el('summary', {
+      style: ESTILO_ABRIR,
+      // A ordem é o contrário da tabela do SEI, e dizer isso evita a leitura
+      // errada de quem só bate o olho.
+      text: `Histórico completo — ${registros.length} registro${
+        registros.length === 1 ? '' : 's'
+      }, do mais antigo ao mais recente`,
+    }),
+    el('ul', { style: ESTILO_LISTA }, itens),
   ]);
 }
 
@@ -110,7 +170,7 @@ export default {
   id: 'trajetoria-processo',
   nome: 'Trajetória do processo',
   descricao:
-    'No Consultar Andamento, resume em uma linha por onde o processo passou e há quanto tempo está parado. Só lê a tela aberta — não faz consulta nenhuma.',
+    'No Consultar Andamento, resume a rota em uma linha e reescreve o andamento inteiro em linguagem normal. Só lê a tela aberta — não faz consulta nenhuma.',
   padraoAtiva: true,
 
   telas: ['andamento', '*'],
@@ -122,23 +182,24 @@ export default {
     const pintar = () => {
       if (!vivo || document.getElementById(ID)) return;
 
-      const eventos = lerAndamentos();
-      // Sem eventos reconhecidos, esta não é a tela do andamento. A feature
-      // declara telas: ['*'] porque o nome da ação desta tela nunca foi
-      // confirmado — quem decide é o conteúdo.
+      const eventos = lerAndamentoCompleto();
+      // Sem eventos, esta não é a tela do andamento. A feature declara
+      // telas: ['*'] porque o nome da ação desta tela nunca foi confirmado —
+      // quem decide é o conteúdo.
       if (!eventos.length) return;
 
-      const paradas = trajetoria(eventos);
-      if (!paradas.length) {
-        log.debug('andamento lido, mas sem tramitação para resumir');
-        return;
-      }
-
-      const tabela = tabelaDoAndamento();
+      const tabela = acharTabela();
       if (!tabela || !tabela.parentElement) return;
 
-      tabela.parentElement.insertBefore(montarFaixa(paradas, Date.now()), tabela);
-      log.debug(`trajetoria: ${paradas.length} parada(s)`);
+      const agora = Date.now();
+      const paradas = trajetoria(eventos, agora);
+      const registros = narrar(eventos);
+
+      const partes = paradas.length ? montarResumo(paradas, agora) : [];
+      partes.push(montarHistorico(registros));
+
+      tabela.parentElement.insertBefore(el('div', { id: ID, style: ESTILO }, partes), tabela);
+      log.debug(`trajetoria: ${paradas.length} parada(s), ${registros.length} registro(s)`);
     };
 
     pintar();
