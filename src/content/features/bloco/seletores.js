@@ -45,34 +45,11 @@ export const MENU = {
   submenu: 'ul',
 };
 
-/**
- * Rotulo -> indice, lido do cabecalho da tabela.
- *
- * Rede para instalacoes sem `data-label`. As celulas de cabecalho do SEI
- * trazem divs de ordenacao junto, mas as ancoras la dentro so tem <img>, entao
- * o texto que sobra e o rotulo.
- */
-export function mapaDeColunas(tabela) {
-  // Primeiro os <th>. Se a tabela nao usar <th> - e ha versao do SEI que
-  // monta o cabecalho com <td>, deixando o JavaScript promover depois -,
-  // a primeira linha serve de cabecalho do mesmo jeito.
-  //
-  // Sem esta segunda tentativa o mapa sai vazio, toda celula fica sem
-  // rotulo e NENHUMA linha vira bloco: a lista com dois registros e lida
-  // como zero, em silencio.
-  let cabecalhos = qsa('th', tabela);
-  if (!cabecalhos.length) {
-    const primeira = qsa('tr', tabela)[0];
-    cabecalhos = primeira ? qsa('th, td', primeira) : [];
-  }
+// Mora no nucleo desde que a troca de unidade passou a ler tabela tambem.
+// Reexportado aqui porque os testes desta feature o importam daqui.
+import { mapaDeColunas } from '../../core/tabela.js';
 
-  const mapa = {};
-  cabecalhos.forEach((celula, i) => {
-    const rotulo = norm(textoDe(celula));
-    if (rotulo && mapa[rotulo] === undefined) mapa[rotulo] = i;
-  });
-  return mapa;
-}
+export { mapaDeColunas };
 
 /** Uma linha da tabela, reduzida ao que blocos.js sabe interpretar. */
 function celulasDaLinha(linha, colunas) {

@@ -170,6 +170,30 @@ export function observar(root, callback, { debounce = 100 } = {}) {
   };
 }
 
+/**
+ * O elemento ocupa espaco na tela?
+ *
+ * `getClientRects()` vazio cobre display:none, o ancestral escondido e o
+ * elemento ainda nao renderizado - tudo de uma vez, sem ler estilo computado.
+ * Fora do navegador (nos testes) nao ha layout, entao assume visivel.
+ */
+export function visivel(no) {
+  if (!no) return false;
+  if (typeof no.getClientRects !== 'function') return true;
+  return no.getClientRects().length > 0;
+}
+
+/**
+ * Entre os rotulos encontrados, o que esta visivel nesta largura de tela.
+ *
+ * Se nenhum estiver (janela minimizada, aba em segundo plano no momento do
+ * boot), fica com o primeiro: melhor escrever num que talvez apareca do que
+ * desistir.
+ */
+export function escolherVisivel(nos) {
+  return nos.find(visivel) || nos[0] || null;
+}
+
 /** Cria elemento. el('div', { class: 'x', onclick: fn }, ['texto', outroEl]) */
 export function el(tag, props = {}, filhos = []) {
   const node = document.createElement(tag);
