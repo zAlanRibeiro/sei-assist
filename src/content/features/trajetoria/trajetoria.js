@@ -30,35 +30,49 @@ const HORA_MS = 60 * 60 * 1000;
 export function trajetoria(eventos, agora = Date.now()) {
   const paradas = [];
 
+  /**
+   * A parada ABERTA de uma unidade, se houver.
+   *
+   * Procura a lista inteira, e nao so o fim: com envio simultaneo ha varias
+   * abertas ao mesmo tempo, e a que interessa pode nao ser a ultima.
+   */
+  const abertaDe = (unidade) => paradas.find((p) => p.unidade === unidade && !p.ate);
+
+  const abrir = (unidade, quando) => {
+    // Ja aberta la: nao abre de novo. Cobre o recebimento repetido - cada
+    // pessoa da unidade que abre o processo gera uma linha - e o destino que
+    // recebe depois de ja ter sido aberto pelo envio.
+    if (!unidade || abertaDe(unidade)) return;
+    paradas.push({ unidade, desde: quando, ate: null });
+  };
+
+  const fechar = (unidade, quando) => {
+    const aberta = abertaDe(unidade);
+    if (aberta) aberta.ate = quando;
+  };
+
   for (const evento of eventos || []) {
-    if (!evento || !evento.unidade) continue;
+    if (!evento) continue;
 
     if (evento.tipo === 'processoCriado' || evento.tipo === 'recebido') {
-      // Recebimento repetido na mesma unidade em que ele ja esta nao abre
-      // parada nova - acontece quando varias pessoas da unidade abrem o
-      // processo.
-      const ultima = paradas[paradas.length - 1];
-      if (ultima && !ultima.ate && ultima.unidade === evento.unidade) continue;
-
-      paradas.push({ unidade: evento.unidade, desde: evento.quando, ate: null });
+      abrir(evento.unidade, evento.quando);
       continue;
     }
 
     if (evento.tipo === 'remetido') {
-      // Fecha a parada ABERTA daquela unidade. Quem faz o trabalho e a
-      // condicao !ate: uma passagem anterior pela mesma unidade ja esta
-      // fechada e e pulada.
+      fechar(evento.unidade, evento.quando);
+
+      // NO SEI, ENVIAR JA ABRE NO DESTINO. O "recebido" so e registrado
+      // quando alguem de la abre o processo pela primeira vez - pode levar
+      // dias, pode nunca acontecer. Abrir a parada so no recebimento fazia a
+      // unidade de destino sumir da rota: num processo enviado ao mesmo tempo
+      // para DEPGM e DIVEST, o DEPGM desaparecia por nao ter aberto ainda.
       //
-      // A parada aberta NAO e necessariamente a ultima: com envio simultaneo
-      // ha varias abertas ao mesmo tempo, e a unidade que devolve o processo
-      // pode ser a primeira delas. Por isso a busca percorre a lista em vez de
-      // olhar so o fim.
-      for (let i = paradas.length - 1; i >= 0; i--) {
-        if (paradas[i].unidade === evento.unidade && !paradas[i].ate) {
-          paradas[i].ate = evento.quando;
-          break;
-        }
-      }
+      // A coluna da linha de envio traz o destino, enquanto a descricao traz
+      // a origem. So vale quando diferem: se coincidirem, esta instalacao
+      // grava outra coisa na coluna e e melhor nao supor.
+      const destino = destinoDoEnvio(evento);
+      if (destino) abrir(destino, evento.quando);
     }
   }
 
@@ -67,6 +81,12 @@ export function trajetoria(eventos, agora = Date.now()) {
     atual: !p.ate,
     duracaoMs: Math.max(0, new Date(p.ate || agora).getTime() - new Date(p.desde).getTime()),
   }));
+}
+
+/** Para onde o envio foi, quando a tela diz. */
+function destinoDoEnvio(evento) {
+  const coluna = evento.unidadeDaColuna;
+  return coluna && coluna !== evento.unidade ? coluna : null;
 }
 
 /**
@@ -185,8 +205,30 @@ function dataCurta(iso) {
  * @returns {{texto: string, detalhe: string}|null} null quando ele não está em
  *   lugar nenhum.
  */
-export function selo(paradas) {
+export function selo(paradas, abertasNoSei = null) {
+  // A lista do SEI ganha da nossa dedução, sempre que existir. Ela sabe duas
+  // coisas que o andamento não conta: que enviar já abre no destino, e que
+  // "manter aberto na unidade atual" deixa o processo aberto na origem também.
+  const doSei = Array.isArray(abertasNoSei) && abertasNoSei.length ? abertasNoSei : null;
   const emAberto = abertas(paradas);
+
+  if (doSei) {
+    if (doSei.length === 1) {
+      // Quando é uma só e temos a parada dela, dá para dizer desde quando.
+      const parada = emAberto.find((p) => p.unidade === doSei[0]);
+      return parada
+        ? {
+            texto: `aqui há ${duracaoLegivel(parada.duracaoMs)}`,
+            detalhe: `Sem sair da ${siglaCurta(parada.unidade)} desde ${dataCurta(parada.desde)}`,
+          }
+        : { texto: `na ${siglaCurta(doSei[0])}`, detalhe: doSei[0] };
+    }
+    return {
+      texto: `em ${doSei.length} unidades`,
+      detalhe: doSei.join('\n'),
+    };
+  }
+
   if (!emAberto.length) return null;
 
   if (emAberto.length === 1) {
@@ -203,4 +245,17 @@ export function selo(paradas) {
       .map((p) => `${siglaCurta(p.unidade)} há ${duracaoLegivel(p.duracaoMs)}`)
       .join('\n'),
   };
+}
+
+/**
+ * "Aberto na DIVEST" / "Aberto em DEPGM, DIVEST e DIVIT".
+ *
+ * Vem da caixa do próprio SEI, e é a resposta autoritativa para "onde ele
+ * está agora" — que a rota, sozinha, não consegue dar.
+ */
+export function frasearAbertas(siglas) {
+  const lista = (siglas || []).map(siglaCurta).filter(Boolean);
+  if (!lista.length) return '';
+  if (lista.length === 1) return `Aberto na ${lista[0]}`;
+  return `Aberto em ${lista.slice(0, -1).join(', ')} e ${lista[lista.length - 1]}`;
 }
