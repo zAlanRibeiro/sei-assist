@@ -128,6 +128,30 @@ async function guardarUnidades(unidades) {
   );
 }
 
+/**
+ * O que dizer quando a lista é capturada.
+ *
+ * Sem isto a feature é invisível: a pessoa passa pela tela de troca, nada
+ * aparece, e não há como saber se a extensão leu a lista ou não. Pior para
+ * quem tem UMA unidade — a lista na barra nunca abre, e o silêncio parece
+ * defeito quando na verdade é o comportamento certo.
+ *
+ * Devolve null quando não há o que dizer.
+ */
+export function mensagemDaCaptura(quantas) {
+  if (!Number.isInteger(quantas) || quantas < 1) return null;
+  if (quantas === 1) {
+    return 'Você tem permissão em 1 unidade. A lista na barra aparece a partir de 2.';
+  }
+  return `${quantas} unidades guardadas. Agora dá para trocar pela barra do SEI.`;
+}
+
+/** A lista mudou desde a última visita? Só então vale avisar de novo. */
+export function listaMudou(antes, agora) {
+  const sigla = (lista) => (lista || []).map((u) => u.sigla).join('|');
+  return sigla(antes) !== sigla(agora);
+}
+
 /* ------------------------------------------------------------ o painel */
 
 function fecharPainel() {
@@ -245,6 +269,16 @@ export default {
     // Metade 1: estamos NA tela de troca.
     const naTela = lerUnidades(document);
     if (naTela.length) {
+      // Avisa só quando a lista muda: quem passa por esta tela toda hora não
+      // precisa do mesmo recado toda hora.
+      lerGuardadas()
+        .then((antes) => {
+          if (!vivo || !listaMudou(antes, naTela)) return;
+          const recado = mensagemDaCaptura(naTela.length);
+          if (recado) toast(recado, { tipo: 'info', duracao: 6000 });
+        })
+        .catch(() => {});
+
       guardarUnidades(naTela).catch(() => {});
 
       const pendente = lerEscolha();
