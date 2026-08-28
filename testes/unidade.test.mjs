@@ -294,3 +294,72 @@ test('o aviso é guardado por listaMudou, e não disparado sempre', () => {
     'a captura deveria sair cedo quando a lista não mudou',
   );
 });
+
+/* ---------------------------------------------------- o conteúdo do painel */
+
+const { itensDoPainel, notaDoPainel } = await import(
+  '../src/content/features/unidade/index.js'
+);
+
+test('a lista marca a unidade atual e libera as outras', () => {
+  const itens = itensDoPainel(TRES, 'NIT/NITTRANS/DIVEST');
+
+  assert.deepEqual(itens.map((i) => i.atual), [true, false, false]);
+  assert.deepEqual(itens.map((i) => i.acionavel), [false, true, true]);
+  assert.equal(itens[1].descricao, 'Departamento Geral');
+});
+
+test('a unidade atual vem da BARRA, não da lista guardada', () => {
+  // Sutileza que já estaria errada sem este teste: TRES traz DIVEST marcada
+  // como atual, porque era ela quando a lista foi guardada. Depois de trocar
+  // para DEPGM, quem está certo é a barra — e desabilitar a linha da DIVEST
+  // impediria a pessoa de voltar para ela.
+  const itens = itensDoPainel(TRES, 'NIT/NITTRANS/DEPGM');
+
+  assert.equal(itens[0].acionavel, true, 'dá para voltar para a DIVEST');
+  assert.equal(itens[1].atual, true, 'a DEPGM é a atual agora');
+});
+
+test('com uma unidade só, a nota explica', () => {
+  const itens = itensDoPainel([TRES[0]], 'NIT/NITTRANS/DIVEST');
+
+  assert.equal(notaDoPainel(itens), 'Você só tem acesso a esta unidade.');
+});
+
+test('com várias, e todas acionáveis, não há nota', () => {
+  assert.equal(notaDoPainel(itensDoPainel(TRES, 'NIT/NITTRANS/DIVEST')), null);
+});
+
+test('lista vazia não vira nota', () => {
+  assert.equal(notaDoPainel([]), null);
+  assert.equal(notaDoPainel(null), null);
+});
+
+test('a barra desconhecida não desabilita ninguém', () => {
+  // Se a sigla da barra não bater com nenhuma da lista (órgão que formata
+  // diferente), o certo é deixar todas clicáveis em vez de travar tudo.
+  const itens = itensDoPainel(TRES, 'OUTRA/COISA');
+
+  assert.equal(itens.every((i) => i.acionavel), true);
+});
+
+/* ------------------------------------------------------------- a opção */
+
+const feature = (await import('../src/content/features/unidade/index.js')).default;
+
+test('a lista com uma unidade é opcional, e vem desligada', () => {
+  // Ligada por padrão, ela trocaria um clique útil (ir para a tela do SEI)
+  // por um painel que não oferece nada, para todo mundo que tem uma unidade.
+  assert.equal(feature.opcoesPadrao.mostrarComUmaUnidade, false);
+  assert.ok(feature.rotulosOpcoes.mostrarComUmaUnidade, 'a opção precisa de rótulo na tela');
+});
+
+test('o mínimo para abrir a lista sai da opção', () => {
+  // Sabotei fixando o mínimo em 2 e nenhum teste caiu: a opção estava
+  // declarada e não usada. Este é o teste da fiação.
+  assert.match(
+    FONTE,
+    /minimo\s*=\s*ctx\.opcoes\.mostrarComUmaUnidade/,
+    'o limite deveria depender da opção, não ser fixo',
+  );
+});
