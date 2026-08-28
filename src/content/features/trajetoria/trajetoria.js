@@ -10,9 +10,11 @@
  * produziu, sai a sequencia de paradas e o texto. Sem DOM, para poder ser
  * testado - e porque contar dias errado num processo com prazo nao e detalhe.
  *
- * LIMITE CONHECIDO: a trajetoria e linear. Um processo pode estar aberto em
- * mais de uma unidade ao mesmo tempo, e nesse caso o que sai aqui e uma
- * simplificacao - a ultima parada aberta e tratada como "onde ele esta".
+ * ENVIO SIMULTANEO: no SEI um processo pode ser enviado para varias unidades
+ * de uma vez, e fica aberto em todas. A trajetoria nao e uma fila, entao: as
+ * paradas que se SOBREPOEM no tempo aparecem lado a lado, e nao uma depois da
+ * outra. Escrever "DEPGM -> PRES" quando as duas receberam junto seria dizer
+ * que uma veio depois da outra.
  */
 
 const DIA_MS = 24 * 60 * 60 * 1000;
@@ -45,8 +47,12 @@ export function trajetoria(eventos, agora = Date.now()) {
     if (evento.tipo === 'remetido') {
       // Fecha a parada ABERTA daquela unidade. Quem faz o trabalho e a
       // condicao !ate: uma passagem anterior pela mesma unidade ja esta
-      // fechada e e pulada. A busca de tras para frente e so por clareza -
-      // a aberta, quando existe, e sempre a ultima.
+      // fechada e e pulada.
+      //
+      // A parada aberta NAO e necessariamente a ultima: com envio simultaneo
+      // ha varias abertas ao mesmo tempo, e a unidade que devolve o processo
+      // pode ser a primeira delas. Por isso a busca percorre a lista em vez de
+      // olhar so o fim.
       for (let i = paradas.length - 1; i >= 0; i--) {
         if (paradas[i].unidade === evento.unidade && !paradas[i].ate) {
           paradas[i].ate = evento.quando;
@@ -101,19 +107,100 @@ export function siglaCurta(unidade) {
   return partes[partes.length - 1] || inteira;
 }
 
-/** A trajetória em uma linha: DIVCC → DEPOT → DIVEST */
-export function emUmaLinha(paradas) {
-  return (paradas || []).map((p) => siglaCurta(p.unidade)).join(' → ');
+/** Quando a parada terminou; agora, se ainda esta aberta. */
+function fim(parada, agora) {
+  return parada.ate ? new Date(parada.ate).getTime() : agora;
+}
+
+/** Duas paradas conviveram no tempo? */
+function sobrepoe(a, b, agora) {
+  return new Date(a.desde).getTime() < fim(b, agora) && new Date(b.desde).getTime() < fim(a, agora);
 }
 
 /**
- * Quanto tempo o processo está parado onde está.
+ * As paradas em grupos: cada grupo e um momento da trajetoria.
  *
- * Devolve null quando ele não está em lugar nenhum (todas as paradas
- * fechadas), o que acontece com processo remetido e ainda não recebido.
+ * Um grupo com mais de uma parada significa que o processo esteve nas duas ao
+ * mesmo tempo. Note que a comparacao e contra o grupo INTEIRO, e nao so contra
+ * a parada anterior: tres unidades em paralelo formam um grupo so, mesmo que a
+ * primeira ja tenha devolvido o processo quando a terceira o recebeu.
  */
-export function paradoHa(paradas, agora = Date.now()) {
-  const atual = (paradas || []).find((p) => p.atual);
-  if (!atual) return null;
-  return agora - new Date(atual.desde).getTime();
+export function agrupar(paradas, agora = Date.now()) {
+  const grupos = [];
+
+  for (const parada of paradas || []) {
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ultimo.some((outra) => sobrepoe(outra, parada, agora))) ultimo.push(parada);
+    else grupos.push([parada]);
+  }
+
+  return grupos;
+}
+
+/**
+ * A trajetória em uma linha: DIVCC → DEPOT → DIVEST
+ *
+ * Unidades que receberam o processo ao mesmo tempo saem juntas, separadas por
+ * "+": DIVCC → DEPGM + PRES.
+ */
+export function emUmaLinha(paradas, agora = Date.now()) {
+  return agrupar(paradas, agora)
+    .map((grupo) => grupo.map((p) => siglaCurta(p.unidade)).join(' + '))
+    .join(' → ');
+}
+
+/**
+ * As paradas ainda abertas — onde o processo está agora.
+ *
+ * É mais de uma quando ele foi enviado para várias unidades de uma vez: no SEI
+ * ele fica aberto em todas, e nenhuma delas é "a" atual. Antes daqui existia
+ * uma função que devolvia só a primeira, enquanto a faixa nomeava a última —
+ * o selo media uma unidade e o rótulo nomeava outra.
+ *
+ * Lista vazia quando ele não está em lugar nenhum: remetido e ainda não
+ * recebido.
+ */
+export function abertas(paradas) {
+  return (paradas || []).filter((p) => p.atual);
+}
+
+/** Data no formato de quem lê: 27/08/2026 */
+function dataCurta(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const dois = (n) => String(n).padStart(2, '0');
+  return `${dois(d.getDate())}/${dois(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+/**
+ * O selo de tempo parado: o que ele diz e o que fica no title.
+ *
+ * Mora aqui, e não na feature, porque é decisão e não desenho — e decisão que
+ * já saiu errada uma vez, quando o selo media uma unidade e nomeava outra.
+ *
+ * Com envio simultâneo não existe "aqui": o processo está aberto em várias
+ * unidades ao mesmo tempo, cada uma com o seu relógio. Nesse caso o selo conta
+ * quantas são, e o detalhe lista uma por linha.
+ *
+ * @returns {{texto: string, detalhe: string}|null} null quando ele não está em
+ *   lugar nenhum.
+ */
+export function selo(paradas) {
+  const emAberto = abertas(paradas);
+  if (!emAberto.length) return null;
+
+  if (emAberto.length === 1) {
+    const [parada] = emAberto;
+    return {
+      texto: `aqui há ${duracaoLegivel(parada.duracaoMs)}`,
+      detalhe: `Sem sair da ${siglaCurta(parada.unidade)} desde ${dataCurta(parada.desde)}`,
+    };
+  }
+
+  return {
+    texto: `em ${emAberto.length} unidades`,
+    detalhe: emAberto
+      .map((p) => `${siglaCurta(p.unidade)} há ${duracaoLegivel(p.duracaoMs)}`)
+      .join('\n'),
+  };
 }
