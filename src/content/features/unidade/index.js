@@ -191,7 +191,7 @@ export function notaDoPainel(itens) {
   return null;
 }
 
-function abrirPainel(ancora, unidades, atual, aoEscolher) {
+function abrirPainel(ancora, unidades, atual, aoEscolher, aoAbrirTela) {
   fecharPainel();
 
   const painel = el('div', { id: ID_PAINEL, style: ESTILO_PAINEL });
@@ -219,6 +219,19 @@ function abrirPainel(ancora, unidades, atual, aoEscolher) {
 
   const nota = notaDoPainel(itens);
   if (nota) painel.appendChild(el('div', { style: ESTILO_NOTA, text: nota }));
+
+  // A tela de troca do SEI entra no proprio painel. Sem isto, abrir a lista
+  // seria beco sem saida para quem queria justamente aquela tela - e foi por
+  // temer esse beco que a lista com uma unidade nasceu desligada.
+  painel.appendChild(
+    el('button', {
+      type: 'button',
+      style: ESTILO_ITEM,
+      title: 'Abrir a tela de troca de unidade do SEI',
+      text: 'Abrir a tela de troca ↗',
+      onclick: aoAbrirTela,
+    }),
+  );
 
   const caixa = ancora.getBoundingClientRect();
   painel.style.top = `${caixa.bottom + window.scrollY + 4}px`;
@@ -295,10 +308,12 @@ export default {
   },
 
   opcoesPadrao: {
-    // Desligada porque, com uma unidade, a lista nao tem o que oferecer e o
-    // clique direto para a tela do SEI e mais util. Ligar serve para ver a
-    // lista funcionando sem ter acesso a duas unidades.
-    mostrarComUmaUnidade: false,
+    // LIGADA. Nasceu desligada por medo de trocar um clique util (ir para a
+    // tela do SEI) por um painel que nao oferece nada. Esse medo deixou de
+    // valer quando a tela do SEI passou a estar DENTRO do painel: agora a
+    // lista com uma unidade diz "voce so tem acesso a esta" e oferece a tela
+    // do mesmo jeito - que e mais do que a tela sozinha diria.
+    mostrarComUmaUnidade: true,
   },
 
   telas: ['*'],
@@ -383,11 +398,19 @@ export default {
       const alvo = ev.target && ev.target.closest && ev.target.closest('a#lnkInfraUnidade');
       if (!alvo) return;
 
-      // Sem lista guardada não há o que oferecer: deixa o SEI fazer o que
-      // sempre fez. Com uma unidade só, idem — a menos que a pessoa peça,
-      // que é como se vê a lista sem ter acesso a duas.
+      // Ainda não conhecemos as unidades: o clique segue para a tela do SEI,
+      // que é onde a lista é lida. Dizer isso evita que a primeira vez pareça
+      // que a extensão simplesmente não fez nada.
+      if (!guardadas) {
+        toast('Ainda não conheço suas unidades. Abrindo a tela para ler a lista.', {
+          tipo: 'info',
+          duracao: 4000,
+        });
+        return;
+      }
+
       const minimo = ctx.opcoes.mostrarComUmaUnidade ? 1 : 2;
-      if (!guardadas || guardadas.length < minimo) return;
+      if (guardadas.length < minimo) return;
 
       ev.preventDefault();
       ev.stopImmediatePropagation();
@@ -397,11 +420,20 @@ export default {
         return;
       }
 
-      abrirPainel(alvo, guardadas, alvo.textContent.trim(), (unidade) => {
-        fecharPainel();
-        guardarEscolha(unidade.sigla);
-        irParaTela();
-      });
+      abrirPainel(
+        alvo,
+        guardadas,
+        alvo.textContent.trim(),
+        (unidade) => {
+          fecharPainel();
+          guardarEscolha(unidade.sigla);
+          irParaTela();
+        },
+        () => {
+          fecharPainel();
+          irParaTela();
+        },
+      );
     };
 
     // Na captura e no documento: o <a> do SEI tem onclick embutido, e só um

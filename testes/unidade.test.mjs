@@ -347,11 +347,41 @@ test('a barra desconhecida não desabilita ninguém', () => {
 
 const feature = (await import('../src/content/features/unidade/index.js')).default;
 
-test('a lista com uma unidade é opcional, e vem desligada', () => {
-  // Ligada por padrão, ela trocaria um clique útil (ir para a tela do SEI)
-  // por um painel que não oferece nada, para todo mundo que tem uma unidade.
-  assert.equal(feature.opcoesPadrao.mostrarComUmaUnidade, false);
-  assert.ok(feature.rotulosOpcoes.mostrarComUmaUnidade, 'a opção precisa de rótulo na tela');
+test('a lista com uma unidade vem ligada, e continua opcional', () => {
+  // Nasceu desligada por medo de trocar um clique útil (ir para a tela do
+  // SEI) por um painel que não oferece nada. O medo deixou de valer quando a
+  // tela do SEI passou a estar DENTRO do painel — ver o teste seguinte.
+  assert.equal(feature.opcoesPadrao.mostrarComUmaUnidade, true);
+  assert.ok(feature.rotulosOpcoes.mostrarComUmaUnidade, 'quem não quiser precisa poder desligar');
+});
+
+test('o painel nunca é beco sem saída: a tela do SEI está dentro dele', () => {
+  // É esta saída que torna seguro abrir a lista com uma unidade só. Sem ela,
+  // quem clicasse querendo a tela do SEI ficaria preso num painel que não
+  // oferece nada.
+  // No TEXTO do botão, e não em qualquer lugar: a primeira versão desta
+  // asserção casava com o `title` do atalho da barra, então apagar o botão do
+  // painel não derrubava nada.
+  assert.match(
+    FONTE,
+    /text: 'Abrir a tela de troca/,
+    'o painel precisa de um botão que leve à tela do SEI',
+  );
+  assert.match(
+    FONTE,
+    /onclick:\s*aoAbrirTela/,
+    'e esse botão tem de acionar a ida para a tela',
+  );
+});
+
+test('sem lista guardada, o clique não fica mudo', () => {
+  // A primeira vez cai aqui: ainda não visitamos a tela de troca. Sair calado
+  // faria parecer que a extensão simplesmente não fez nada.
+  assert.match(
+    FONTE,
+    /if \(!guardadas\) \{[\s\S]{0,300}?toast\(/,
+    'o caminho sem lista deveria explicar o que vai acontecer',
+  );
 });
 
 test('o mínimo para abrir a lista sai da opção', () => {
