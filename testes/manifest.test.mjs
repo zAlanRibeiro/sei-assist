@@ -44,13 +44,44 @@ test('web_accessible_resources usa padrão com caminho /*', () => {
   }
 });
 
-test('os content scripts casam com o SEI de qualquer órgão', () => {
-  // Cada órgão hospeda o SEI no próprio domínio; o que é comum é o caminho.
+test('os content scripts apontam para o controlador do SEI', () => {
+  // "/sei/" sozinho casava com qualquer site que tivesse isso no caminho -
+  // https://loja.exemplo.com/sei/produto entrava. A assinatura de verdade do
+  // SEI e o controlador: toda tela do sistema passa por ele.
+  //
+  // O "*" no fim cobre a query (?acao=...). O padrao NAO exige nada dentro
+  // dela de proposito: se o Chrome casar so o caminho, o "*" casa vazio e o
+  // padrao continua valendo. Assim a precisao nao depende de um detalhe de
+  // implementacao do navegador.
   for (const script of manifest.content_scripts) {
     for (const padrao of script.matches) {
       assert.ok(PADRAO_CONTENT.test(padrao), `padrão inválido: ${padrao}`);
-      assert.ok(padrao.includes('/sei/'), `${padrao} casaria com site que não é SEI`);
+      assert.ok(
+        padrao.includes('/sei/controlador.php'),
+        `${padrao} casaria com site que não é SEI`,
+      );
     }
+  }
+});
+
+test('nenhum padrão recorta o SEI por domínio', () => {
+  // TENTACAO REGISTRADA: o SEI++ usa "*://*.br/*" e isso parece apertar a
+  // seguranca de graca. Nao e de graca. SEI em intranet de orgao existe -
+  // http://sei.orgao.local/sei/, ou direto num IP - e nenhum desses casa com
+  // *.br. Em web_accessible_resources isso seria fatal: o import() dos
+  // modulos falharia e a extensao inteira nao subiria, exatamente como no
+  // episodio do use_dynamic_url.
+  //
+  // Pior: quem desenvolve aqui esta num SEI .br, entao o defeito passaria
+  // batido no unico ambiente onde da para testar.
+  const todos = [
+    ...manifest.content_scripts.flatMap((c) => c.matches),
+    ...manifest.web_accessible_resources.flatMap((r) => r.matches),
+  ];
+
+  for (const padrao of todos) {
+    const host = padrao.split('://')[1].split('/')[0];
+    assert.equal(host, '*', `${padrao} exclui quem hospeda o SEI fora desse domínio`);
   }
 });
 
