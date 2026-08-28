@@ -15,8 +15,8 @@
  */
 import { el } from '../../core/dom.js';
 import { log } from '../../core/log.js';
-import { acharTabela, lerAndamentos } from '../../core/andamento.js';
-import { emUmaLinha, selo, trajetoria } from './trajetoria.js';
+import { acharTabela, lerAndamentos, lerUnidadesAbertas } from '../../core/andamento.js';
+import { emUmaLinha, frasearAbertas, selo, trajetoria } from './trajetoria.js';
 
 const ID = 'seix-trajetoria';
 
@@ -48,6 +48,12 @@ const ESTILO = {
   lineHeight: '1.4',
 };
 
+const ESTILO_ABERTAS = {
+  flexBasis: '100%',
+  color: 'var(--seix-cor-texto-suave, #475467)',
+  fontSize: '12px',
+};
+
 const ESTILO_ROTA = {
   color: 'var(--seix-cor-texto, #1c1c1c)',
   fontWeight: '700',
@@ -63,8 +69,9 @@ const ESTILO_PARADO = {
   fontWeight: '700',
 };
 
-function montarFaixa(paradas, agora) {
-  const marca = selo(paradas);
+function montarFaixa(paradas, agora, abertasNoSei) {
+  const marca = selo(paradas, abertasNoSei);
+  const aberto = frasearAbertas(abertasNoSei);
 
   return el('div', { id: ID, style: ESTILO }, [
     el('span', {
@@ -74,6 +81,9 @@ function montarFaixa(paradas, agora) {
       text: emUmaLinha(paradas, agora),
     }),
     marca ? el('span', { style: ESTILO_PARADO, title: marca.detalhe, text: marca.texto }) : null,
+    // A rota diz por onde passou; esta linha diz onde ESTÁ. São perguntas
+    // diferentes, e o andamento só responde a primeira.
+    aberto ? el('span', { style: ESTILO_ABERTAS, text: aberto }) : null,
   ]);
 }
 
@@ -109,7 +119,7 @@ export default {
       const tabela = acharTabela();
       if (!tabela || !tabela.parentElement) return;
 
-      tabela.parentElement.insertBefore(montarFaixa(paradas, agora), tabela);
+      tabela.parentElement.insertBefore(montarFaixa(paradas, agora, lerUnidadesAbertas()), tabela);
       log.debug(`trajetoria: ${paradas.length} parada(s)`);
     };
 

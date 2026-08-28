@@ -16,7 +16,7 @@
  * celula que parece data/hora e a celula que casa com um padrao conhecido.
  * Assim ele sobrevive a uma tela com colunas a mais, a menos ou trocadas.
  */
-import { qsa } from './dom.js';
+import { qsa, textoProprio } from './dom.js';
 
 /**
  * Tela "Consultar Andamento": o historico oficial do processo.
@@ -302,4 +302,77 @@ export function acharTabela(doc = document) {
     }
   }
   return melhor;
+}
+
+/* ------------------------------------------------------------------------ *
+ * Onde o processo esta ABERTO
+ *
+ * O andamento nao basta para responder isso, e a diferenca nao e detalhe:
+ *
+ *   - enviar ja abre o processo no destino, mas o "recebido" so aparece
+ *     quando alguem de la abre pela primeira vez;
+ *   - enviar com "manter aberto na unidade atual" deixa o processo aberto na
+ *     ORIGEM tambem, e o andamento nao registra essa escolha em lugar nenhum.
+ *
+ * Felizmente o SEI diz na propria tela, numa caixa "Processo aberto nas
+ * unidades". Ler dali e melhor que qualquer inferencia nossa.
+ *
+ * NAO CONFIRMADO no HTML: vi a caixa numa captura de tela, nao no codigo.
+ * A busca e pelo TEXTO do rotulo, que e o que se ve, e devolve null quando
+ * nao acha - quem chama entao volta a inferir pelo andamento.
+ * ------------------------------------------------------------------------ */
+
+export const ABERTAS = {
+  rotulo: /processo\s+aberto\s+na?s?\s+unidades?/i,
+  /** Sigla de unidade: caixa alta com pelo menos uma barra. */
+  sigla: /\b[A-Z][A-Z0-9]*(?:\/[A-Z0-9._-]+)+/g,
+  /** Onde procurar. Lista fechada: varrer '*' percorreria a pagina inteira. */
+  folhas: 'div, td, p, section, fieldset, span',
+  /** Onde cada sigla mora dentro da caixa. */
+  itens: 'div, td, p, span, a, li, strong, b, label',
+};
+
+/**
+ * As siglas dentro de um elemento, lidas UMA A UMA.
+ *
+ * Nao da para procurar no textContent do conjunto: ele concatena os filhos sem
+ * separador nenhum - <div>A</div><div>B</div> vira "AB" - e duas siglas
+ * coladas viram uma so, gigante e inexistente. Isso e comportamento do DOM de
+ * verdade, nao artefato de teste.
+ */
+function siglasDentro(no) {
+  const pedacos = [textoProprio(no), ...qsa(ABERTAS.itens, no).map(textoProprio)];
+  const achadas = [];
+
+  for (const pedaco of pedacos) {
+    for (const sigla of String(pedaco || '').match(ABERTAS.sigla) || []) achadas.push(sigla);
+  }
+  return [...new Set(achadas)];
+}
+
+/**
+ * As unidades em que o processo esta aberto AGORA, segundo o proprio SEI.
+ *
+ * @returns {string[]|null} null quando a caixa nao esta nesta tela.
+ */
+export function lerUnidadesAbertas(doc = document) {
+  let melhor = null;
+
+  for (const no of qsa(ABERTAS.folhas, doc)) {
+    const texto = (no.textContent || '').replace(/\s+/g, ' ');
+    if (!ABERTAS.rotulo.test(texto)) continue;
+
+    const siglas = siglasDentro(no);
+    if (!siglas.length) continue;
+
+    // O MENOR trecho que traga o rotulo E pelo menos uma sigla.
+    //
+    // Duas armadilhas de uma vez: o <div> que embrulha a pagina tambem casa
+    // com o rotulo, e traria junto todas as siglas da tabela de andamento -
+    // inclusive as de unidades que ja devolveram o processo. E o elemento do
+    // proprio rotulo, que e o menor de todos, nao tem sigla nenhuma.
+    if (!melhor || texto.length < melhor.tamanho) melhor = { tamanho: texto.length, siglas };
+  }
+
+  return melhor ? melhor.siglas : null;
 }

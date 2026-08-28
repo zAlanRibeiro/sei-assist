@@ -447,3 +447,152 @@ test('com envio simultâneo, o selo conta e detalha uma por linha', () => {
 test('processo que saiu e ainda não chegou não tem selo', () => {
   assert.equal(selo(trajetoria([criado(DIVCC, 1), remetido(DIVCC, 4)], AGORA)), null);
 });
+
+/* ------------------------------------- o processo aberto em várias unidades */
+
+const { lerUnidadesAbertas } = await import('../src/content/core/andamento.js');
+const { frasearAbertas } = await import('../src/content/features/trajetoria/trajetoria.js');
+const { elemento, instalarDocumento } = await import('./domFalso.mjs');
+
+const DIVIT = 'NIT/NITTRANS/DIVIT';
+const DEPGM = 'NIT/NITTRANS/DEPGM';
+
+/**
+ * O andamento real do processo NIT-050131/004049/2026, resumido às linhas que
+ * movem o processo. Foi ele que mostrou os dois erros do modelo antigo.
+ *
+ * Ordem das colunas: Data/Hora, Unidade, Usuário, Descrição.
+ */
+const QUATRO_MIL = [
+  ['28/08/2026 15:50', DIVIT, 'lilian.pollard', 'Processo público gerado'],
+  // Envio simultâneo: duas linhas no mesmo minuto, mesma origem, colunas
+  // diferentes. A coluna é o DESTINO.
+  ['28/08/2026 16:28', DEPGM, 'lilian.pollard', `Processo remetido pela unidade ${DIVIT}`],
+  ['28/08/2026 16:28', DIVEST, 'lilian.pollard', `Processo remetido pela unidade ${DIVIT}`],
+  ['28/08/2026 16:30', DIVEST, 'alan.ribeiro', 'Processo recebido na unidade'],
+  ['28/08/2026 16:35', DIVIT, 'leonardo.boechat', `Processo remetido pela unidade ${DIVEST}`],
+];
+
+const eventosQuatroMil = () =>
+  QUATRO_MIL.map(lerLinha)
+    .filter(Boolean)
+    .sort((a, b) => (a.quando < b.quando ? -1 : 1));
+
+const AGORA_4K = new Date('2026-08-28T17:00:00').getTime();
+
+test('enviar já abre o processo no destino', () => {
+  // O DEPGM nunca recebeu — ninguém de lá abriu o processo — e sumia da rota
+  // inteira. No SEI, enviar já abre no destino: o "recebido" só aparece
+  // quando alguém de lá abre pela primeira vez, e pode nunca acontecer.
+  const paradas = trajetoria(eventosQuatroMil(), AGORA_4K);
+
+  assert.ok(
+    paradas.some((p) => p.unidade === DEPGM),
+    'o DEPGM tem de estar na rota',
+  );
+  assert.equal(paradas.find((p) => p.unidade === DEPGM).atual, true, 'e continua aberto lá');
+});
+
+test('o recebimento depois do envio não abre parada em dobro', () => {
+  // A DIVEST foi aberta pelo envio das 16:28 e recebida às 16:30. É a mesma
+  // passagem, não duas.
+  const paradas = trajetoria(eventosQuatroMil(), AGORA_4K);
+
+  assert.equal(paradas.filter((p) => p.unidade === DIVEST).length, 1);
+});
+
+test('a rota do processo real sai completa', () => {
+  const paradas = trajetoria(eventosQuatroMil(), AGORA_4K);
+
+  assert.equal(emUmaLinha(paradas, AGORA_4K), 'DIVIT → DEPGM + DIVEST + DIVIT');
+});
+
+/* ------------------------------------------- a caixa "aberto nas unidades" */
+
+test('lê as unidades abertas da caixa do SEI', () => {
+  const doc = instalarDocumento(
+    elemento('body', {}, [
+      elemento('div', {}, [
+        elemento('div', {}, ['Processo aberto nas unidades:']),
+        elemento('div', {}, [DEPGM]),
+        elemento('div', {}, [DIVEST]),
+        elemento('div', {}, [DIVIT]),
+      ]),
+    ]),
+  );
+
+  assert.deepEqual(lerUnidadesAbertas(doc), [DEPGM, DIVEST, DIVIT]);
+});
+
+test('tela sem a caixa devolve null, e não lista vazia', () => {
+  // null significa "não sei"; lista vazia significaria "não está aberto em
+  // lugar nenhum". Quem chama trata os dois de forma diferente.
+  const doc = instalarDocumento(elemento('body', {}, [elemento('p', {}, ['Nada aqui'])]));
+
+  assert.equal(lerUnidadesAbertas(doc), null);
+});
+
+test('a caixa não arrasta as siglas da tabela de andamento', () => {
+  // Sem pegar o MENOR elemento que contém o rótulo, o primeiro casamento
+  // seria o <div> que embrulha a página, e viriam junto as unidades que já
+  // devolveram o processo.
+  const doc = instalarDocumento(
+    elemento('body', {}, [
+      elemento('div', {}, [
+        elemento('div', {}, [
+          elemento('div', {}, ['Processo aberto nas unidades:']),
+          elemento('div', {}, [DIVEST]),
+        ]),
+        elemento('table', {}, [
+          elemento('tr', {}, [elemento('td', {}, [`Processo remetido pela unidade ${DIVIT}`])]),
+        ]),
+      ]),
+    ]),
+  );
+
+  assert.deepEqual(lerUnidadesAbertas(doc), [DIVEST]);
+});
+
+test('a lista do SEI manda no selo', () => {
+  // A DIVEST remeteu às 16:35 e mesmo assim continua aberta: foi enviada com
+  // "manter aberto na unidade atual", escolha que o andamento não registra em
+  // lugar nenhum. Só a caixa do SEI sabe.
+  const paradas = trajetoria(eventosQuatroMil(), AGORA_4K);
+  const marca = selo(paradas, [DEPGM, DIVEST, DIVIT]);
+
+  assert.equal(marca.texto, 'em 3 unidades');
+  assert.equal(marca.detalhe.split('\n').length, 3);
+});
+
+test('sem a caixa, o selo volta a deduzir do andamento', () => {
+  const paradas = trajetoria(eventosQuatroMil(), AGORA_4K);
+
+  assert.equal(selo(paradas, null).texto, 'em 2 unidades', 'DEPGM e DIVIT, pelo andamento');
+});
+
+test('a frase de abertas lê como gente fala', () => {
+  assert.equal(frasearAbertas([DIVEST]), 'Aberto na DIVEST');
+  assert.equal(frasearAbertas([DEPGM, DIVEST, DIVIT]), 'Aberto em DEPGM, DIVEST e DIVIT');
+  assert.equal(frasearAbertas([]), '');
+  assert.equal(frasearAbertas(null), '');
+});
+
+test('siglas em elementos irmãos não se colam numa só', () => {
+  // textContent concatena os filhos SEM separador: <div>A</div><div>B</div>
+  // vira "AB". Procurar a sigla no texto do conjunto produzia uma sigla
+  // gigante e inexistente — "NIT/NITTRANS/DEPGMNIT/NITTRANS/DIVEST" —, e é
+  // assim que a caixa do SEI é montada, uma unidade por linha.
+  const doc = instalarDocumento(
+    elemento('body', {}, [
+      elemento('div', {}, [
+        elemento('span', {}, ['Processo aberto nas unidades:']),
+        elemento('div', {}, [DEPGM]),
+        elemento('div', {}, [DIVEST]),
+      ]),
+    ]),
+  );
+
+  const lidas = lerUnidadesAbertas(doc);
+  assert.deepEqual(lidas, [DEPGM, DIVEST]);
+  assert.equal(lidas.every((s) => s.split('/').length === 3), true, 'nenhuma sigla grudada');
+});
