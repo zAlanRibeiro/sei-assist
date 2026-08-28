@@ -362,57 +362,10 @@ export function processosParaEnviar(valorDoCampo, textosDasOpcoes) {
 }
 /* ---------------------------------------------------------- andamento */
 
-/**
- * Tela "Consultar Andamento": o historico oficial do processo.
- *
- * E o equivalente, para envios, do que o bloco de assinatura e para
- * assinaturas: a fonte retroativa e autoritativa. Cada linha traz data/hora,
- * unidade, usuario e a descricao do que aconteceu.
- *
- * CONFIRMADO em uso: abrir "Consultar Andamento" num processo trouxe
- * envios e criacoes para o historico. Nunca vi o HTML desta tela, mas o
- * caminho inteiro funcionou - que e a prova que interessa.
- */
-export const ANDAMENTO = {
-  // Basta um destes aparecer para valer a pena varrer a tela.
-  marca: /Processo (remetido|recebido|.{0,12}gerado)|Documento .{0,12}gerado/i,
-
-  /**
-   * Cada padrao vira um tipo de evento. Adicionar um novo tipo ao historico e,
-   * na maior parte das vezes, so acrescentar uma linha aqui.
-   *
-   * CONFIRMADO em uso: tanto os textos de tramitacao quanto os de criacao
-   * produziram registro a partir do andamento real. Se a aba "Criados"
-   * vier vazia em outro orgao, e aqui que se ajusta.
-   */
-  padroes: {
-    remetido: /Processo remetido pela unidade\s+([A-Z0-9][A-Z0-9/._-]{1,60})/i,
-    recebido: /Processo recebido na unidade\s+([A-Z0-9][A-Z0-9/._-]{1,60})/i,
-    // As duas ordens de palavra: "Processo publico gerado" e "Gerado o
-    // processo publico". Nao vi o texto real deste orgao, entao aceito ambas.
-    processoCriado: /processo[^.]{0,30}?gerado|gerado[^.]{0,20}?processo/i,
-    documentoCriado: /documento[^.]{0,30}?gerado|gerado[^.]{0,20}?documento/i,
-  },
-
-  /**
-   * O que extrair do trecho que casou. A unidade sai do grupo capturado (e uma
-   * sigla, precisa de ancora no texto); o numero do documento e procurado
-   * dentro do proprio trecho, para nao depender da ordem das palavras.
-   */
-  capturas: {
-    remetido: 'unidade',
-    recebido: 'unidade',
-    documentoCriado: 'documento',
-  },
-
-  /** Numero de documento dentro da celula de descricao. */
-  numeroNoTrecho: /\d{4,}/,
-
-  // Data/hora no formato do SEI dentro de uma celula: 02/07/2026 16:59
-  dataHora: /(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2})/,
-
-  linhas: ['table tr', 'tr'],
-};
+// O andamento mudou de casa: mora em core/andamento.js, porque a leitura
+// dele deixou de ser exclusiva do historico. Reexportado aqui para nao
+// quebrar quem ja o importava daqui.
+export { ANDAMENTO } from '../../core/andamento.js';
 
 /* --------------------------------------------------- criacao de processo */
 
