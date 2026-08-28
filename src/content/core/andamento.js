@@ -43,7 +43,16 @@ export const ANDAMENTO = {
    */
   padroes: {
     remetido: /Processo remetido pela unidade\s+([A-Z0-9][A-Z0-9/._-]{1,60})/i,
-    recebido: /Processo recebido na unidade\s+([A-Z0-9][A-Z0-9/._-]{1,60})/i,
+    // CONFIRMADO na tela: o recebimento vem SEM sigla nenhuma - a descricao e
+    // so "Processo recebido na unidade", e quem diz a unidade e a coluna. Por
+    // isso o grupo e opcional; sem isso a linha nao casava, nenhum
+    // recebimento entrava, e a trajetoria parava na primeira parada.
+    //
+    // O envio continua exigindo a sigla de proposito. Nele a coluna traz o
+    // DESTINO e a descricao traz a ORIGEM: cair na coluna quando a sigla
+    // faltasse trocaria uma pela outra em silencio. Melhor nao reconhecer a
+    // linha do que reconhece-la ao contrario.
+    recebido: /Processo recebido na unidade\s*([A-Z0-9][A-Z0-9/._-]{1,60})?/i,
     // As duas ordens de palavra: "Processo publico gerado" e "Gerado o
     // processo publico". Nao vi o texto real deste orgao, entao aceito ambas.
     processoCriado: /processo[^.]{0,30}?gerado|gerado[^.]{0,20}?processo/i,
@@ -143,13 +152,20 @@ export function lerLinha(celulas) {
       // unidade e sigla em caixa alta com barras (NIT/NITTRANS/DIVEST);
       // usuario e login minusculo ou e-mail institucional.
       const restantes = textos.filter((x) => x !== t && !ANDAMENTO.dataHora.test(x));
+      const daColuna = restantes.find(ehUnidade) || null;
 
       return {
         quando,
         tipo,
-        unidade:
-          significa === 'unidade' ? capturado : restantes.find(ehUnidade) || null,
+        // A sigla escrita na descricao ganha da coluna quando existe: e ela
+        // que diz de ONDE o processo saiu num envio, enquanto a coluna diz
+        // para onde foi. Quando a descricao nao traz sigla - o caso do
+        // recebimento - a coluna e a unica fonte.
+        unidade: significa === 'unidade' ? capturado || daColuna : daColuna,
         documento: significa === 'documento' ? capturado : null,
+        // O que estava na coluna, sempre. Numa linha de envio ele e diferente
+        // do campo acima, e quem interpreta decide o que fazer com isso.
+        unidadeDaColuna: daColuna,
         usuario: restantes.find((x) => x.length <= 60 && !ehUnidade(x)) || null,
         descricao: t,
       };
@@ -225,10 +241,26 @@ export function extrairEnvios(eventos) {
       const par = recebidos.find(
         (r) => Math.abs(new Date(r.quando) - new Date(envio.quando)) <= 60 * 1000,
       );
+
+      // Sem par no mesmo minuto, a coluna da propria linha do envio.
+      //
+      // CONFIRMADO na tela: nesta instancia a unidade recebe o processo horas
+      // ou dias depois do envio - 12 minutos, 11 horas -, entao o par quase
+      // nunca existe, e todo envio retroativo ficava com destino desconhecido.
+      // A coluna da linha do envio traz o DESTINO enquanto a descricao traz a
+      // origem.
+      //
+      // So vale quando difere da origem: numa instancia onde a coluna trouxer
+      // a origem, as duas coincidem e preferimos nao saber a mentir.
+      const daColuna =
+        envio.unidadeDaColuna && envio.unidadeDaColuna !== envio.unidade
+          ? envio.unidadeDaColuna
+          : null;
+
       return {
         quando: envio.quando,
         origem: envio.unidade,
-        destino: par ? par.unidade : null,
+        destino: par ? par.unidade : daColuna,
         usuario: envio.usuario,
         descricao: envio.descricao,
       };

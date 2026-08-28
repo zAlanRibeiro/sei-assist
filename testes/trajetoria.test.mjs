@@ -202,3 +202,108 @@ test('toda caixa da faixa declara a própria cor', () => {
     assert.ok(corpo.includes('color:'), `${nome} não declara cor`);
   }
 });
+
+/* ------------------------------------------------------------ a tela real */
+
+const { lerLinha, extrairEnvios } = await import('../src/content/core/andamento.js');
+
+/**
+ * O andamento inteiro de um processo real, copiado da tela do SEI 5.0.4 de
+ * NIT/NITTRANS: 16 linhas, quatro unidades, um bloco de assinatura pelo meio.
+ *
+ * Vale mais que qualquer caso montado à mão, porque foi ele que revelou o
+ * erro: nesta instância o recebimento não traz sigla nenhuma na descrição —
+ * quem diz a unidade é a coluna. Como o padrão exigia a sigla, nenhum
+ * recebimento era reconhecido e a trajetória parava na primeira parada.
+ *
+ * As colunas estão na ordem da tela: Data/Hora, Unidade, Usuário, Descrição.
+ */
+const TELA = [
+  ['27/08/2026 13:55', 'NIT/NITTRANS/DIVEST', 'leonardo.boechat@nittrans.niteroi.rj.gov.br', 'Ciência no processo'],
+  ['27/08/2026 13:55', 'NIT/NITTRANS/DIVEST', 'leonardo.boechat@nittrans.niteroi.rj.gov.br', 'Processo recebido na unidade'],
+  ['24/08/2026 23:13', 'NIT/NITTRANS/DIVEST', 'ana.maciel@nittrans.niteroi.rj.gov.br', 'Processo remetido pela unidade NIT/NITTRANS/DEPGM'],
+  ['24/08/2026 23:12', 'NIT/NITTRANS/DEPGM', 'ana.maciel@nittrans.niteroi.rj.gov.br', 'Assinado Documento 00086058 (Despacho) por ana.maciel@nittrans.niteroi.rj.gov.br'],
+  ['24/08/2026 23:10', 'NIT/NITTRANS/DEPGM', 'ana.maciel@nittrans.niteroi.rj.gov.br', 'Gerado documento público 00086058 (Despacho)'],
+  ['24/08/2026 23:06', 'NIT/NITTRANS/DEPGM', 'ana.maciel@nittrans.niteroi.rj.gov.br', 'Processo recebido na unidade'],
+  ['24/08/2026 12:24', 'NIT/NITTRANS/DEPGM', 'manuella.guedes@nittrans.niteroi.rj.gov.br', 'Processo remetido pela unidade NIT/NITTRANS/CHEFGAB'],
+  ['24/08/2026 12:20', 'NIT/NITTRANS/PRES', 'nelsongoda@nittrans.niteroi.rj.gov.br', 'Bloco 3097 retornado para NIT/NITTRANS/CHEFGAB'],
+  ['24/08/2026 12:20', 'NIT/NITTRANS/PRES', 'nelsongoda@nittrans.niteroi.rj.gov.br', 'Assinado Documento 00083236 (Despacho) por nelsongoda@nittrans.niteroi.rj.gov.br'],
+  ['24/08/2026 12:18', 'NIT/NITTRANS/CHEFGAB', 'manuella.guedes@nittrans.niteroi.rj.gov.br', 'Bloco 3097 disponibilizado para NIT/NITTRANS/PRES'],
+  ['24/08/2026 12:18', 'NIT/NITTRANS/CHEFGAB', 'manuella.guedes@nittrans.niteroi.rj.gov.br', 'Documento 00083236 (Despacho) inserido no bloco 3097'],
+  ['24/08/2026 12:16', 'NIT/NITTRANS/CHEFGAB', 'manuella.guedes@nittrans.niteroi.rj.gov.br', 'Gerado documento público 00083236 (Despacho)'],
+  ['06/08/2026 15:50', 'NIT/NITTRANS/CHEFGAB', 'manuella.guedes@nittrans.niteroi.rj.gov.br', 'Processo recebido na unidade'],
+  ['06/08/2026 15:38', 'NIT/NITTRANS/CHEFGAB', 'juliana.queires@nittrans.niteroi.rj.gov.br', 'Processo remetido pela unidade NIT/NITTRANS/ASTEC'],
+  ['06/08/2026 15:36', 'NIT/NITTRANS/ASTEC', 'juliana.queires@nittrans.niteroi.rj.gov.br', 'Registro de documento externo público 00037790 (Anexo)'],
+  ['06/08/2026 15:34', 'NIT/NITTRANS/ASTEC', 'juliana.queires@nittrans.niteroi.rj.gov.br', 'Processo público gerado'],
+];
+
+const eventosDaTela = () =>
+  TELA.map(lerLinha)
+    .filter(Boolean)
+    .sort((a, b) => (a.quando < b.quando ? -1 : 1));
+
+test('a tela real produz a trajetória inteira', () => {
+  const paradas = trajetoria(eventosDaTela(), new Date('2026-08-28T10:00:00').getTime());
+
+  assert.equal(emUmaLinha(paradas), 'ASTEC → CHEFGAB → DEPGM → DIVEST');
+  assert.equal(paradas[paradas.length - 1].atual, true, 'está na DIVEST');
+});
+
+test('o recebimento sem sigla tira a unidade da coluna', () => {
+  const recebimentos = eventosDaTela().filter((e) => e.tipo === 'recebido');
+
+  assert.equal(recebimentos.length, 3, 'os três recebimentos têm de ser reconhecidos');
+  assert.deepEqual(recebimentos.map((e) => e.unidade), [
+    'NIT/NITTRANS/CHEFGAB',
+    'NIT/NITTRANS/DEPGM',
+    'NIT/NITTRANS/DIVEST',
+  ]);
+});
+
+test('no envio, a sigla da descrição ganha da coluna', () => {
+  // Na coluna vai o DESTINO; na descrição, a ORIGEM. Trocar as duas inverteria
+  // a trajetória inteira sem que nada quebrasse visivelmente.
+  const envios = eventosDaTela().filter((e) => e.tipo === 'remetido');
+
+  assert.deepEqual(envios.map((e) => e.unidade), [
+    'NIT/NITTRANS/ASTEC',
+    'NIT/NITTRANS/CHEFGAB',
+    'NIT/NITTRANS/DEPGM',
+  ]);
+});
+
+test('a unidade do bloco de assinatura não vira parada', () => {
+  // O bloco foi para a PRES e voltou; o PROCESSO nunca saiu do CHEFGAB.
+  const paradas = trajetoria(eventosDaTela(), new Date('2026-08-28T10:00:00').getTime());
+
+  assert.equal(
+    paradas.some((p) => p.unidade.endsWith('PRES')),
+    false,
+  );
+});
+
+test('o destino do envio sai da coluna quando o recebimento é tardio', () => {
+  // Nesta instância a unidade recebe horas ou dias depois: o par de 60s quase
+  // nunca existe, e todo envio retroativo ficava com destino desconhecido.
+  const envios = extrairEnvios(eventosDaTela());
+
+  assert.deepEqual(
+    envios.map((e) => `${siglaCurta(e.origem)} → ${siglaCurta(e.destino)}`),
+    ['ASTEC → CHEFGAB', 'CHEFGAB → DEPGM', 'DEPGM → DIVEST'],
+  );
+});
+
+test('coluna igual à origem não vira destino', () => {
+  // Se outra instância puser a origem na coluna, as duas coincidem. Preferimos
+  // não saber a inventar um destino que é a própria origem.
+  const [envio] = extrairEnvios([
+    lerLinha([
+      '06/08/2026 15:38',
+      'NIT/NITTRANS/ASTEC',
+      'juliana.queires@nittrans.niteroi.rj.gov.br',
+      'Processo remetido pela unidade NIT/NITTRANS/ASTEC',
+    ]),
+  ]);
+
+  assert.equal(envio.destino, null);
+});
