@@ -393,3 +393,72 @@ test('o mínimo para abrir a lista sai da opção', () => {
     'o limite deveria depender da opção, não ser fixo',
   );
 });
+
+/* ------------------------------------------------------- onde o painel cai */
+
+const { posicionarPainel } = await import('../src/content/features/unidade/index.js');
+
+/** A caixa da unidade na barra: encostada à direita, como no SEI. */
+const naBarra = { left: 1500, right: 1700, width: 200, bottom: 40 };
+const TELA = { largura: 1920, scrollX: 0, scrollY: 0 };
+
+test('o painel fica centrado sob a unidade', () => {
+  // Antes ele era alinhado pela direita usando a largura MÍNIMA como se fosse
+  // a real — e a real cresce com o nome mais comprido da lista. Saía torto
+  // para a esquerda, que foi o que apareceu na tela.
+  const { left } = posicionarPainel(naBarra, 300, TELA);
+
+  const centroDaAncora = naBarra.left + naBarra.width / 2;
+  assert.equal(left + 300 / 2, centroDaAncora, 'os dois centros têm de coincidir');
+});
+
+test('não passa da borda direita da janela', () => {
+  const encostada = { left: 1800, right: 1900, width: 100, bottom: 40 };
+  const { left } = posicionarPainel(encostada, 300, TELA);
+
+  assert.ok(left + 300 <= TELA.largura, 'o painel inteiro cabe na tela');
+  assert.equal(left, 1920 - 300 - 8);
+});
+
+test('não passa da borda esquerda', () => {
+  const canto = { left: 0, right: 40, width: 40, bottom: 40 };
+  const { left } = posicionarPainel(canto, 300, TELA);
+
+  assert.equal(left, 8, 'encosta na margem, não em valor negativo');
+});
+
+test('painel mais largo que a janela encosta na margem', () => {
+  // O teto ficaria abaixo do piso; sem o Math.max de fora, a borda esquerda
+  // iria para a área invisível.
+  const { left } = posicionarPainel(naBarra, 3000, { largura: 400, scrollX: 0, scrollY: 0 });
+
+  assert.equal(left, 8);
+});
+
+test('a rolagem entra na conta', () => {
+  const { left, top } = posicionarPainel(naBarra, 300, {
+    largura: 1920,
+    scrollX: 30,
+    scrollY: 500,
+  });
+
+  // centro 1600, menos meia largura 150, dá 1450; mais a rolagem.
+  assert.equal(left, 1450 + 30);
+  assert.equal(top, 40 + 500 + 4);
+});
+
+test('o painel cai logo abaixo da unidade', () => {
+  assert.equal(posicionarPainel(naBarra, 300, TELA).top, 44);
+});
+
+test('o painel é pendurado ANTES de ser medido', () => {
+  // offsetWidth de um elemento fora do documento é zero, e um painel de
+  // largura zero seria centrado no lugar errado. A ordem é a regra aqui, e
+  // sabotá-la não derrubava teste nenhum antes desta linha.
+  const ondePendura = FONTE.indexOf('document.body.appendChild(painel)');
+  const ondeMede = FONTE.indexOf('painel.offsetWidth');
+
+  assert.notEqual(ondePendura, -1, 'o painel precisa entrar no documento');
+  assert.notEqual(ondeMede, -1, 'a largura real precisa ser medida');
+  assert.ok(ondePendura < ondeMede, 'medir antes de pendurar daria largura zero');
+});

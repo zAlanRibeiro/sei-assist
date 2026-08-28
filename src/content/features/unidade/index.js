@@ -45,6 +45,8 @@ const ESTILO_PAINEL = {
   position: 'absolute',
   zIndex: '2147483000',
   minWidth: '260px',
+  // Teto para o nome comprido nao esticar o painel pela tela toda.
+  maxWidth: '360px',
   maxHeight: '320px',
   overflowY: 'auto',
   padding: '4px',
@@ -182,6 +184,36 @@ export function itensDoPainel(unidades, siglaAtual) {
   }));
 }
 
+/** Folga mínima entre o painel e a borda da janela. */
+const MARGEM = 8;
+
+/**
+ * Onde pendurar o painel: centrado sob a unidade, sem sair da tela.
+ *
+ * Antes ele era alinhado pela direita da âncora usando a largura MÍNIMA como
+ * se fosse a largura real — e a real cresce com o nome mais comprido da
+ * lista. O resultado era um painel deslocado para a esquerda, que foi o que
+ * se viu na tela.
+ *
+ * Pura para poder ser testada: acertar posição de menu por tentativa e erro
+ * no navegador é o tipo de coisa que volta a errar na próxima mudança.
+ */
+export function posicionarPainel(caixa, largura, tela) {
+  const centro = caixa.left + caixa.width / 2;
+  const ideal = centro - largura / 2;
+
+  // Quando o painel é mais largo que a janela, o teto fica abaixo do piso e o
+  // Math.min devolveria um valor negativo. O Math.max de fora garante que a
+  // borda esquerda nunca entra na área invisível.
+  const teto = Math.max(MARGEM, tela.largura - largura - MARGEM);
+  const left = Math.max(MARGEM, Math.min(ideal, teto));
+
+  return {
+    left: Math.round(left + (tela.scrollX || 0)),
+    top: Math.round(caixa.bottom + (tela.scrollY || 0) + 4),
+  };
+}
+
 /** A nota do rodapé do painel, quando há o que explicar. */
 export function notaDoPainel(itens) {
   const lista = itens || [];
@@ -233,10 +265,19 @@ function abrirPainel(ancora, unidades, atual, aoEscolher, aoAbrirTela) {
     }),
   );
 
-  const caixa = ancora.getBoundingClientRect();
-  painel.style.top = `${caixa.bottom + window.scrollY + 4}px`;
-  painel.style.left = `${Math.max(4, caixa.right + window.scrollX - 260)}px`;
+  // Pendura primeiro, mede depois: a largura do painel depende do nome mais
+  // comprido da lista, e sem ela não dá para centralizar. A posição é
+  // escrita antes de o navegador pintar, então o painel não é visto no lugar
+  // errado.
   document.body.appendChild(painel);
+
+  const lugar = posicionarPainel(ancora.getBoundingClientRect(), painel.offsetWidth, {
+    largura: window.innerWidth,
+    scrollX: window.scrollX,
+    scrollY: window.scrollY,
+  });
+  painel.style.left = `${lugar.left}px`;
+  painel.style.top = `${lugar.top}px`;
   return painel;
 }
 
