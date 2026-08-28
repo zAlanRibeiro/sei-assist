@@ -75,8 +75,14 @@ perguntado.
 **`web_accessible_resources` com `*://*/*`**
 > O padrão desse campo aceita apenas esquema e host; o caminho tem de ser
 > `/*`, por exigência do próprio Chrome. Não é possível restringi-lo ao
-> caminho do SEI. Os arquivos expostos são apenas os módulos da própria
-> extensão, sem dado nenhum.
+> caminho do SEI, porque cada órgão hospeda o SEI no próprio domínio. Os
+> arquivos expostos são apenas os módulos da própria extensão, sem dado
+> nenhum.
+>
+> Como o padrão não pode ser apertado, a exposição usa `use_dynamic_url`:
+> a URL dos módulos muda a cada sessão, então um site de terceiros não
+> consegue sondar um endereço fixo para descobrir se a extensão está
+> instalada. É por isso que o `minimum_chrome_version` é 104.
 
 ## Declaração de uso de dados
 

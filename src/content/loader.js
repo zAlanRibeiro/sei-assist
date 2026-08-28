@@ -74,7 +74,8 @@
           `URL da pagina: ${location.href.split('&infra_')[0]}\n` +
           `Frame: ${window.name || '(principal)'}\n` +
           'Causa provavel: a politica de seguranca desta tela barra o import ' +
-          'dinamico, ou o arquivo saiu de web_accessible_resources.',
+          'dinamico, o arquivo saiu de web_accessible_resources, ou o Chrome ' +
+          'e anterior ao 104 e nao entende use_dynamic_url.',
         err,
       );
     }

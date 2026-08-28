@@ -91,7 +91,16 @@ test('os recursos expostos cobrem o que o carregador importa', () => {
   // estiver exposto, a importação falha em tempo de execução — e só naquele
   // ponto, o que é difícil de rastrear.
   const expostos = manifest.web_accessible_resources.flatMap((r) => r.resources);
-  for (const necessario of ['src/content/main.js', 'src/content/core/*.js', 'src/shared/*.js']) {
+  // features/ entra na lista porque o main.js importa cada uma delas: a
+  // ausência só apareceria em tempo de execução, e só naquela tela.
+  const NECESSARIOS = [
+    'src/content/main.js',
+    'src/content/core/*.js',
+    'src/content/features/*.js',
+    'src/content/features/*/*.js',
+    'src/shared/*.js',
+  ];
+  for (const necessario of NECESSARIOS) {
     const coberto = expostos.some((padrao) => {
       if (padrao === necessario) return true;
       const regex = new RegExp(`^${padrao.split('*').map((p) => p.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*')}$`);
@@ -99,4 +108,45 @@ test('os recursos expostos cobrem o que o carregador importa', () => {
     });
     assert.ok(coberto, `não exposto em web_accessible_resources: ${necessario}`);
   }
+});
+
+/* ------------------------------------------------ impressão digital */
+
+test('os recursos expostos usam URL dinâmica', () => {
+  // Sem isto, QUALQUER site que você visitar pode pedir
+  // chrome-extension://<id>/src/content/core/dom.js e ver se responde. Depois
+  // de publicada, o id é fixo e público — então a sondagem funciona sempre, e
+  // quem detecta deduz que a pessoa usa SEI, ou seja, é servidora pública.
+  //
+  // `matches` não resolve: o Chrome exige caminho "/*" ali (ver o primeiro
+  // teste deste arquivo), e o host não dá para restringir porque cada órgão
+  // hospeda o SEI no próprio domínio. `use_dynamic_url` faz a URL mudar a cada
+  // sessão, e a sondagem por URL fixa deixa de funcionar.
+  for (const recurso of manifest.web_accessible_resources) {
+    assert.equal(
+      recurso.use_dynamic_url,
+      true,
+      'exposição sem URL dinâmica: qualquer site consegue detectar a extensão',
+    );
+  }
+});
+
+test('o Chrome mínimo suporta URL dinâmica', () => {
+  // use_dynamic_url chegou no Chrome 104. Declarar menos que isso deixaria a
+  // extensão instalável onde a proteção não existe — e sem aviso nenhum.
+  const minimo = Number.parseInt(manifest.minimum_chrome_version, 10);
+  assert.ok(Number.isInteger(minimo), 'minimum_chrome_version precisa ser um número');
+  assert.ok(minimo >= 104, `minimum_chrome_version ${minimo} é anterior ao use_dynamic_url`);
+});
+
+test('não expomos o que ninguém carrega em tempo de execução', () => {
+  // Todo caminho exposto é um alvo de sondagem a mais. Os ícones vêm de
+  // `icons` e `action.default_icon`, que o Chrome lê sozinho — expô-los em
+  // web_accessible_resources não servia para nada.
+  const expostos = manifest.web_accessible_resources.flatMap((r) => r.resources);
+  assert.equal(
+    expostos.some((r) => r.startsWith('assets/')),
+    false,
+    'assets/ não é carregado por nenhum script; expor só aumenta a superfície',
+  );
 });
