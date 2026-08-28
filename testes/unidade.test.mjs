@@ -248,3 +248,49 @@ test('a navegação sai do link do SEI, não de location.href', () => {
   );
   assert.ok(FONTE.includes('ancora.click()'), 'a navegação tem de acionar o link do SEI');
 });
+
+/* ------------------------------------------------------- o aviso da captura */
+
+const { mensagemDaCaptura, listaMudou } = await import(
+  '../src/content/features/unidade/index.js'
+);
+
+test('com uma unidade, o aviso explica por que a lista não abre', () => {
+  // É o caso de quem só tem uma. Silêncio aqui parece defeito, quando na
+  // verdade é o comportamento certo.
+  const recado = mensagemDaCaptura(1);
+
+  assert.match(recado, /1 unidade/);
+  assert.match(recado, /a partir de 2/);
+});
+
+test('com várias, o aviso diz que a lista está pronta', () => {
+  assert.match(mensagemDaCaptura(3), /3 unidades/);
+  assert.match(mensagemDaCaptura(3), /pela barra/);
+});
+
+test('sem unidade nenhuma não há o que dizer', () => {
+  assert.equal(mensagemDaCaptura(0), null);
+  assert.equal(mensagemDaCaptura(null), null);
+});
+
+test('listaMudou distingue duas listas', () => {
+  const a = [{ sigla: 'X' }, { sigla: 'Y' }];
+
+  assert.equal(listaMudou(a, [{ sigla: 'X' }, { sigla: 'Y' }]), false);
+  assert.equal(listaMudou(a, [{ sigla: 'X' }, { sigla: 'Z' }]), true, 'unidade trocada');
+  assert.equal(listaMudou(a, [{ sigla: 'X' }]), true, 'unidade removida');
+  assert.equal(listaMudou(null, a), true, 'primeira captura');
+});
+
+test('o aviso é guardado por listaMudou, e não disparado sempre', () => {
+  // O teste acima cobre a COMPARAÇÃO; este cobre a FIAÇÃO. Sabotei tirando o
+  // guarda da chamada e nenhum teste caiu — sinal de que a comparação estava
+  // testada e o uso dela não. Quem passa por esta tela toda hora não precisa
+  // do mesmo recado toda hora.
+  assert.match(
+    FONTE,
+    /listaMudou\([^)]*\)\)\s*return;/,
+    'a captura deveria sair cedo quando a lista não mudou',
+  );
+});
