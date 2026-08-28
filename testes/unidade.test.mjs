@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 
 globalThis.chrome = { runtime: { id: 'teste' } };
 
-const { lerUnidades, acharUnidadeNaBarra, urlDaTroca, TROCA } = await import(
+const { lerUnidades, acharUnidadeNaBarra } = await import(
   '../src/content/features/unidade/seletores.js'
 );
 const { elemento, instalarDocumento } = await import('./domFalso.mjs');
@@ -190,44 +190,61 @@ test('o title do rádio salva quando a coluna Sigla não é encontrada', () => {
   assert.equal(lerUnidades(instalarDocumento(raiz))[0].sigla, 'NIT/NITTRANS/DEPGM');
 });
 
-/* ----------------------------------------------------------- a URL */
+/* --------------------------------------------- a regra escrita com sangue */
 
-const URL_REAL =
-  'https://leste.sei.rj.gov.br/sei/controlador.php?acao=procedimento_controlar&reset=1' +
-  '&infra_sistema=100000100&infra_unidade_atual=110001775&infra_hash=55eb5f679a897b4d';
+import fs from 'node:fs';
 
-test('a URL da troca reaproveita os parâmetros de sessão', () => {
-  // infra_hash muda a cada sessão. Montar a URL a partir da barra de endereços
-  // evita guardar token nenhum — e evita link guardado envelhecer com a sessão.
-  const url = new URL(urlDaTroca(URL_REAL));
+/**
+ * Só o CÓDIGO, sem comentários.
+ *
+ * A regra proíbe montar URL, não falar sobre montar URL — e o cabeçalho do
+ * arquivo precisa justamente explicar por que isso derruba a sessão.
+ */
+function semComentarios(caminho) {
+  return fs
+    .readFileSync(caminho, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+}
 
-  assert.equal(url.searchParams.get('acao'), TROCA.acao);
-  assert.equal(url.searchParams.get('infra_hash'), '55eb5f679a897b4d');
-  assert.equal(url.searchParams.get('infra_unidade_atual'), '110001775');
+const FONTE = semComentarios('src/content/features/unidade/index.js');
+const FONTE_SELETORES = semComentarios('src/content/features/unidade/seletores.js');
+
+test('esta feature nunca monta URL do SEI', () => {
+  // A primeira versão montava a URL da tela de troca copiando os parâmetros
+  // infra_* da página atual. O infra_hash é calculado POR AÇÃO — é token
+  // contra falsificação de requisição. Copiado de uma ação para outra, dá
+  // "hash inválido" na navegação e DERRUBA A SESSÃO numa busca em segundo
+  // plano. Foi o que aconteceu com o usuário.
+  //
+  // A URL certa quem sabe é o link do próprio SEI. Aciona-se o link.
+  for (const proibido of ['infra_hash', 'infra_sistema', 'controlador.php', 'new URL(']) {
+    for (const [nome, fonte] of [
+      ['index.js', FONTE],
+      ['seletores.js', FONTE_SELETORES],
+    ]) {
+      assert.equal(
+        fonte.includes(proibido),
+        false,
+        `${nome} monta URL do SEI ("${proibido}") — foi isso que derrubou a sessão`,
+      );
+    }
+  }
 });
 
-test('parâmetros que não são de sessão ficam de fora', () => {
-  const url = new URL(urlDaTroca(URL_REAL));
-
-  assert.equal(url.searchParams.get('reset'), null, 'reset é da outra tela');
+test('esta feature não faz requisição nenhuma', () => {
+  // A lista vem da tela que a pessoa abriu, não de uma consulta. Buscar em
+  // segundo plano foi exatamente o caminho que matou a sessão.
+  for (const proibido of ['rede.js', 'fetch(', 'buscarHtml', 'XMLHttpRequest']) {
+    assert.equal(FONTE.includes(proibido), false, `index.js consulta o SEI ("${proibido}")`);
+  }
 });
 
-test('URL sem parâmetros de sessão não vira link', () => {
-  // Melhor não oferecer a troca do que mandar a pessoa para uma tela de erro.
-  assert.equal(urlDaTroca('https://leste.sei.rj.gov.br/sei/controlador.php?acao=x'), null);
-  assert.equal(urlDaTroca('nem é url'), null);
-});
-
-test('a marca de atual vale como atributo e como propriedade', () => {
-  // No HTML buscado do servidor vem checked="checked"; na tela viva, um clique
-  // muda a propriedade sem tocar no atributo. Ler só uma das duas erraria em
-  // metade dos casos.
-  const doc = instalarDocumento(telaDeTroca(TRES));
-  assert.equal(lerUnidades(doc)[0].atual, true, 'pelo atributo');
-
-  const semAtributo = instalarDocumento(
-    telaDeTroca(TRES.map((u) => ({ ...u, atual: false }))),
+test('a navegação sai do link do SEI, não de location.href', () => {
+  assert.equal(
+    /location\.href\s*=/.test(FONTE),
+    false,
+    'navegar por conta própria exige montar URL — e URL montada derruba a sessão',
   );
-  semAtributo.getElementById('chkInfraItem1').checked = true;
-  assert.deepEqual(lerUnidades(semAtributo).map((u) => u.atual), [false, true, false], 'pela propriedade');
+  assert.ok(FONTE.includes('ancora.click()'), 'a navegação tem de acionar o link do SEI');
 });

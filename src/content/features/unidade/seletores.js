@@ -121,32 +121,3 @@ export function lerUnidades(raiz) {
 
   return unidades;
 }
-
-/**
- * A URL da tela de troca, a partir da URL atual.
- *
- * Os parametros `infra_*` mudam a cada sessao e estao na barra de enderecos da
- * propria pagina. Montar a URL a partir dali evita guardar token nenhum - e
- * evita que um link guardado envelheca junto com a sessao.
- */
-export function urlDaTroca(href = location.href) {
-  try {
-    const url = new URL(href);
-    const params = new URLSearchParams(url.search);
-    const destino = new URLSearchParams();
-
-    destino.set('acao', TROCA.acao);
-    for (const [chave, valor] of params) {
-      if (chave.startsWith('infra_')) destino.set(chave, valor);
-    }
-
-    // Sem os parametros de sessao a tela nao abre; melhor nao oferecer a
-    // troca do que mandar a pessoa para um erro.
-    if (![...destino.keys()].some((k) => k.startsWith('infra_'))) return null;
-
-    url.search = destino.toString();
-    return url.toString();
-  } catch {
-    return null;
-  }
-}

@@ -1,28 +1,36 @@
 /**
- * Feature: trocar de unidade sem sair da tela.
+ * Feature: trocar de unidade pela barra.
  *
- * Clicar na unidade, na barra do SEI, leva a uma tela inteira só para escolher
- * outra. Quem alterna entre duas unidades no mesmo expediente faz esse caminho
- * o dia todo. Aqui o clique abre a lista ali mesmo, e ao lado fica um "↗" que
- * continua levando para a tela de sempre.
+ * Clicar na unidade abre a lista das suas unidades ali mesmo, sem passar pela
+ * tela de troca. Ao lado fica um "↗" que leva à tela de sempre.
  *
- * O QUE ESTA FEATURE NÃO FAZ: montar requisição. A troca acontece clicando no
- * mesmo controle que a pessoa clicaria — navegamos para a tela do SEI e
- * marcamos a opção escolhida. É automação de navegação e preenchimento, que é
- * o que esta extensão se permite; nada é enviado nem assinado por conta
- * própria.
+ * REGRA DESTA FEATURE, escrita com sangue: NUNCA montar URL do SEI.
  *
- * E se qualquer parte falhar, o desfecho é o comportamento antigo: a tela de
- * troca do SEI, aberta como sempre foi.
+ * A primeira versão montava a URL da tela de troca copiando os parâmetros
+ * `infra_*` da página atual. Não funciona: o `infra_hash` é calculado POR
+ * AÇÃO, é um token contra falsificação de requisição. Copiá-lo de uma ação
+ * para outra dá "hash inválido" na navegação e, numa busca em segundo plano,
+ * faz o SEI DERRUBAR A SESSÃO do usuário.
+ *
+ * Então aqui não há URL montada nem busca nenhuma. Só duas coisas:
+ *
+ *   1. quando a pessoa passa pela tela de troca, guardamos a lista de
+ *      unidades que já está ali na frente dela;
+ *   2. a partir daí, o clique na barra abre essa lista, e escolher uma
+ *      aciona o PRÓPRIO link do SEI, que sabe a URL certa.
+ *
+ * Antes da primeira visita à tela de troca, o clique se comporta exatamente
+ * como sempre se comportou — a extensão não atrapalha o que não conhece.
  */
 import { el, qsa } from '../../core/dom.js';
-import { buscarHtml, lerHtml } from '../../core/rede.js';
+import { comContexto } from '../../core/runtime.js';
 import { toast } from '../../core/ui.js';
 import { log } from '../../core/log.js';
-import { acharUnidadeNaBarra, lerUnidades, urlDaTroca, TROCA } from './seletores.js';
+import { acharUnidadeNaBarra, lerUnidades, TROCA } from './seletores.js';
 
 const ID_PAINEL = 'seix-unidades';
 const ID_ATALHO = 'seix-unidades-tela';
+const CHAVE = 'seix:unidades';
 const PENDENTE = 'seix:trocar-unidade';
 
 /** Escolha pendente vale por pouco: é uma navegação, não um agendamento. */
@@ -85,29 +93,39 @@ const ESTILO_ATALHO = {
   font: 'inherit',
 };
 
-/* ------------------------------------------------------------- a lista */
-
-let cache = null;
+/* --------------------------------------------------- a lista guardada */
 
 /**
- * As unidades, buscadas só quando alguém abre a lista.
+ * A lista vem da tela de troca quando a pessoa passa por ela.
  *
- * Sem consulta periódica e sem consulta no carregamento: enquanto ninguém
- * clicar, esta feature não gera tráfego nenhum.
+ * Guardada por ORIGEM, porque quem usa mais de um SEI (produção e
+ * homologação, por exemplo) tem listas diferentes em cada um, e misturá-las
+ * ofereceria unidade que não existe do outro lado.
  */
-async function carregarUnidades() {
-  if (cache) return cache;
+async function lerGuardadas() {
+  return comContexto(
+    async () => {
+      const bruto = await chrome.storage.local.get(CHAVE);
+      const todas = bruto?.[CHAVE] || {};
+      return todas[location.origin] || null;
+    },
+    null,
+    'ler unidades guardadas',
+  );
+}
 
-  const url = urlDaTroca();
-  if (!url) return null;
-
-  const html = await buscarHtml(url);
-  const doc = lerHtml(html);
-  if (!doc) return null;
-
-  cache = lerUnidades(doc);
-  log.debug(`unidades com permissão: ${cache.length}`);
-  return cache;
+async function guardarUnidades(unidades) {
+  return comContexto(
+    async () => {
+      const bruto = await chrome.storage.local.get(CHAVE);
+      const todas = bruto?.[CHAVE] || {};
+      todas[location.origin] = unidades;
+      await chrome.storage.local.set({ [CHAVE]: todas });
+      return true;
+    },
+    false,
+    'guardar unidades',
+  );
 }
 
 /* ------------------------------------------------------------ o painel */
@@ -117,22 +135,25 @@ function fecharPainel() {
   if (antigo) antigo.remove();
 }
 
-function abrirPainel(ancora, unidades, aoEscolher) {
+function abrirPainel(ancora, unidades, atual, aoEscolher) {
   fecharPainel();
 
   const painel = el('div', { id: ID_PAINEL, style: ESTILO_PAINEL });
 
   for (const unidade of unidades) {
-    const atual = unidade.atual;
+    // "Atual" é a unidade da barra AGORA, não a que estava marcada quando a
+    // lista foi guardada — senão a extensão desabilitaria a linha errada
+    // depois da primeira troca.
+    const ehAtual = unidade.sigla === atual;
     painel.appendChild(
       el(
         'button',
         {
           type: 'button',
-          style: atual ? ESTILO_ITEM_ATUAL : ESTILO_ITEM,
-          title: atual ? 'Você já está nesta unidade' : `Trocar para ${unidade.sigla}`,
-          disabled: atual ? 'disabled' : null,
-          onclick: atual ? null : () => aoEscolher(unidade),
+          style: ehAtual ? ESTILO_ITEM_ATUAL : ESTILO_ITEM,
+          title: ehAtual ? 'Você já está nesta unidade' : `Trocar para ${unidade.sigla}`,
+          disabled: ehAtual ? 'disabled' : null,
+          onclick: ehAtual ? null : () => aoEscolher(unidade),
         },
         [
           unidade.sigla,
@@ -156,9 +177,8 @@ function abrirPainel(ancora, unidades, aoEscolher) {
 function guardarEscolha(sigla) {
   try {
     sessionStorage.setItem(PENDENTE, JSON.stringify({ sigla, quando: Date.now() }));
-    return true;
   } catch {
-    return false;
+    /* sem sessionStorage, a troca simplesmente não é pré-selecionada */
   }
 }
 
@@ -212,7 +232,7 @@ export default {
   id: 'trocar-unidade',
   nome: 'Trocar de unidade pela barra',
   descricao:
-    'Clicar na unidade, na barra do SEI, abre a lista das suas unidades ali mesmo. O "↗" ao lado continua levando para a tela de troca de sempre. A lista só é buscada quando você abre.',
+    'Depois que você passa uma vez pela tela de troca de unidade, clicar na unidade na barra do SEI abre a lista ali mesmo. O "↗" ao lado leva à tela de sempre. Não faz consulta nenhuma: usa a lista que já apareceu na sua tela.',
   padraoAtiva: true,
 
   telas: ['*'],
@@ -222,28 +242,39 @@ export default {
     let vivo = true;
     const limpezas = [];
 
-    // Metade 1: a tela de troca, quando chegamos nela com uma escolha feita.
-    const pendente = lerEscolha();
-    if (pendente) {
-      // A tabela pode ainda não estar montada no instante do boot.
-      let tentativas = 0;
-      const tentar = () => {
-        if (!vivo || aplicarNaTela(pendente) || (tentativas += 1) > 10) return;
-        setTimeout(tentar, 300);
-      };
-      tentar();
+    // Metade 1: estamos NA tela de troca.
+    const naTela = lerUnidades(document);
+    if (naTela.length) {
+      guardarUnidades(naTela).catch(() => {});
+
+      const pendente = lerEscolha();
+      if (pendente) {
+        let tentativas = 0;
+        const tentar = () => {
+          if (!vivo || aplicarNaTela(pendente) || (tentativas += 1) > 10) return;
+          setTimeout(tentar, 300);
+        };
+        tentar();
+      }
     }
 
     // Metade 2: a barra do topo.
     const ancora = acharUnidadeNaBarra();
-    if (!ancora) {
-      log.debug('unidade não encontrada na barra');
-      return () => limpezas.forEach((fn) => fn && fn());
-    }
+    if (!ancora) return () => limpezas.forEach((fn) => fn && fn());
 
+    /**
+     * Aciona o link do SEI, que é quem sabe a URL certa.
+     *
+     * A bandeira desliga o nosso interceptador durante o clique; sem ela ele
+     * pegaria o próprio clique que acabamos de disparar.
+     */
+    let deixarPassar = false;
     const irParaTela = () => {
-      const url = urlDaTroca();
-      if (url) location.href = url;
+      deixarPassar = true;
+      ancora.click();
+      setTimeout(() => {
+        deixarPassar = false;
+      }, 0);
     };
 
     const atalho = el('button', {
@@ -261,11 +292,24 @@ export default {
     ancora.insertAdjacentElement('afterend', atalho);
     limpezas.push(() => atalho.remove());
 
-    let carregando = false;
+    // A lista é lida uma vez, no início. Se ainda não houver nenhuma, o
+    // interceptador nem entra em ação e o SEI segue como sempre.
+    let guardadas = null;
+    lerGuardadas()
+      .then((lista) => {
+        guardadas = lista;
+        if (lista) log.debug(`unidades guardadas: ${lista.length}`);
+      })
+      .catch(() => {});
 
-    const aoClicar = async (ev) => {
+    const aoClicar = (ev) => {
+      if (deixarPassar || !vivo) return;
       const alvo = ev.target && ev.target.closest && ev.target.closest('a#lnkInfraUnidade');
-      if (!alvo || !vivo) return;
+      if (!alvo) return;
+
+      // Sem lista guardada, ou com uma unidade só, não há o que oferecer:
+      // deixa o SEI fazer o que sempre fez.
+      if (!guardadas || guardadas.length < 2) return;
 
       ev.preventDefault();
       ev.stopImmediatePropagation();
@@ -274,26 +318,8 @@ export default {
         fecharPainel();
         return;
       }
-      if (carregando) return;
 
-      carregando = true;
-      let unidades = null;
-      try {
-        unidades = await carregarUnidades();
-      } catch (err) {
-        log.debug('não consegui listar as unidades:', err);
-      } finally {
-        carregando = false;
-      }
-
-      // Sem lista, ou com uma unidade só, não há o que oferecer: o desfecho
-      // volta a ser o de sempre, a tela do SEI.
-      if (!unidades || unidades.length < 2) {
-        irParaTela();
-        return;
-      }
-
-      abrirPainel(alvo, unidades, (unidade) => {
+      abrirPainel(alvo, guardadas, alvo.textContent.trim(), (unidade) => {
         fecharPainel();
         guardarEscolha(unidade.sigla);
         irParaTela();
