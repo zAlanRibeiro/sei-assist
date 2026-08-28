@@ -74,7 +74,18 @@ async function consultar(intervaloMs, { forcar = false } = {}) {
     temTabela: Boolean(doc.querySelector('#tblBlocos')),
     legenda: doc.querySelector('caption')?.textContent?.trim() || '(sem caption)',
   };
-  if (!agora.length) log.warn('bloco de assinatura: nada relevante', diagnostico);
+  // Nenhum bloco para a sua unidade e o estado NORMAL - a maior parte do
+  // tempo nao ha nada mesmo. Isto era um `warn`, e virava um aviso a cada
+  // consulta, para sempre, na pagina de erros da extensao. Diagnostico util,
+  // nivel errado.
+  //
+  // A resposta sem TABELA nenhuma e outra coisa: ou a pagina mudou, ou o
+  // parser quebrou. Essa continua merecendo aviso, porque so aparece quando
+  // ha algo a consertar.
+  if (!agora.length) {
+    if (diagnostico.temTabela) log.debug('bloco de assinatura: nada relevante', diagnostico);
+    else log.warn('bloco de assinatura: a resposta nao tinha tabela', diagnostico);
+  }
 
   // Primeira vez: so registra o ponto de partida. Instalar a extensao com
   // quinze blocos parados nao pode virar quinze avisos de "chegou agora".
