@@ -58,6 +58,15 @@ confirmada contra todas as telas do SEI: recusar tudo que não é reconhecido
 desligaria a recuperação de rascunho para quem depende dela. Quem prefere o
 lado seguro liga a opção.
 
+### Mensagens entre os quadros da tela
+
+A extensão mostra os avisos sempre no quadro de cima, senão eles ficariam
+presos dentro do iframe. Essa passagem é restrita à **origem do próprio SEI**
+nos dois sentidos: a mensagem só é enviada quando o quadro de cima é o mesmo
+SEI, e só é aceita quando vem de lá. Se a página do SEI estiver embutida em
+um site de terceiro, o aviso fica no quadro onde nasceu em vez de ser
+entregue a quem embutiu.
+
 ### O que NUNCA é lido ou guardado
 
 - **Sua senha.** O campo aparece nos seletores da extensão apenas documentado

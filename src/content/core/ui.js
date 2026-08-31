@@ -17,19 +17,64 @@ function raiz() {
   return r;
 }
 
+/**
+ * Os unicos tipos de toast que existem.
+ *
+ * A lista e fechada porque o tipo vira NOME DE CLASSE, e o tipo chega pela
+ * ponte de postMessage - onde o remetente nao e necessariamente nosso. Sem a
+ * lista, qualquer frame podia aplicar a classe que quisesse ao nosso
+ * elemento.
+ */
+export const TIPOS_DE_TOAST = ['info', 'sucesso', 'alerta', 'erro'];
+
+/** Tipo desconhecido vira `info`, que e o visual neutro. */
+export function tipoSeguro(tipo) {
+  return TIPOS_DE_TOAST.includes(tipo) ? tipo : 'info';
+}
+
+/**
+ * Esta mensagem veio de onde deveria?
+ *
+ * A ponte de toasts recebia `message` de QUALQUER origem. Um frame de
+ * terceiro dentro da pagina do SEI podia fazer aparecer, com a cara da
+ * extensao, o texto que quisesse - "sua sessao expirou, informe a senha" com
+ * a credibilidade emprestada de quem o usuario ja instalou.
+ *
+ * Pura para poder ser testada: e uma decisao de seguranca, e decisao de
+ * seguranca sem teste e so um comentario.
+ */
+export function aceitaMensagem(ev, origemLocal) {
+  if (!ev || !ev.data || ev.data.tipo !== `${NS}:toast`) return false;
+  return ev.origin === origemLocal;
+}
+
 /** Mensagem rapida no canto da tela. */
 export function toast(texto, { tipo = 'info', duracao = 3500 } = {}) {
   // Toasts sempre no frame do topo, senao ficam presos dentro do iframe.
   if (window.top !== window.self) {
     try {
-      window.top.postMessage({ tipo: `${NS}:toast`, texto, tipoToast: tipo, duracao }, '*');
-      return;
+      // Ler a origem do topo lanca quando ele e de outra origem - e e por isso
+      // que a leitura vem ANTES do envio: com targetOrigin '*', o texto do
+      // toast (que carrega numero de processo) era entregue a quem quer que
+      // estivesse embutindo o SEI. Nao dando para entregar ao SEI, o toast
+      // fica aqui dentro mesmo; preso no iframe e melhor que vazado.
+      const destino = window.top.location.origin;
+      if (destino === location.origin) {
+        window.top.postMessage(
+          { tipo: `${NS}:toast`, texto, tipoToast: tipoSeguro(tipo), duracao },
+          destino,
+        );
+        return;
+      }
     } catch {
-      /* cross-origin: cai no fluxo local abaixo */
+      /* topo de outra origem: cai no fluxo local abaixo */
     }
   }
 
-  const node = el('div', { class: `${NS}-toast ${NS}-toast--${tipo}`, text: texto });
+  const node = el('div', {
+    class: `${NS}-toast ${NS}-toast--${tipoSeguro(tipo)}`,
+    text: texto,
+  });
   raiz().appendChild(node);
   requestAnimationFrame(() => node.classList.add(`${NS}-toast--visivel`));
   setTimeout(() => {
@@ -46,9 +91,11 @@ export function toast(texto, { tipo = 'info', duracao = 3500 } = {}) {
 export function ativarPonteDeToasts() {
   if (window.top !== window.self) return;
   window.addEventListener('message', (ev) => {
-    if (ev.data && ev.data.tipo === `${NS}:toast`) {
-      toast(ev.data.texto, { tipo: ev.data.tipoToast, duracao: ev.data.duracao });
-    }
+    if (!aceitaMensagem(ev, location.origin)) return;
+    toast(String(ev.data.texto ?? ''), {
+      tipo: tipoSeguro(ev.data.tipoToast),
+      duracao: Number(ev.data.duracao) || undefined,
+    });
   });
 }
 
