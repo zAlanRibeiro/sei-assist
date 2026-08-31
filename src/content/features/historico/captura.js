@@ -50,6 +50,7 @@
  * o usuario copiar o numero.
  */
 import {
+  completarProcessos,
   marcarAssinadosVistos,
   marcarAssinadosPorNumero,
   descarregarAtos,
@@ -389,6 +390,11 @@ export async function varrerArvore() {
   }
   const completados = await completarNumeros(mapa);
 
+  // A arvore e o unico lugar que sabe, ao mesmo tempo, QUAL e o processo e
+  // QUAIS documentos estao nele. Passar por ela conserta o registro que
+  // nasceu com "processo desconhecido".
+  await completarProcessos(Object.keys(mapa), acharNup((document.body && document.body.textContent) || ''));
+
   const links = qsa(ARVORE.linkAssinaturas);
   if (!links.length) return completados;
 
@@ -454,7 +460,16 @@ function numeroNaArvore(idDocumento) {
   return null;
 }
 
-/** Procura o NUP na janela ou frame que abriu a tela atual. */
+/**
+ * Procura o NUP na janela, no frame de cima ou nos frames IRMAOS.
+ *
+ * Os irmaos sao o ponto. A tela "Gerar Documento" roda dentro de
+ * ifrVisualizacao, e o numero do processo nao esta nem nela nem no documento
+ * de cima: `textContent` nao atravessa iframe, e o topo so tem a barra e a
+ * moldura. Quem tem o NUP e ifrArvore, que e IRMAO - nao ancestral.
+ *
+ * Sem isso, todo documento criado nascia com "processo desconhecido".
+ */
 function processoDaOrigem() {
   const candidatos = [];
   try {
@@ -466,6 +481,9 @@ function processoDaOrigem() {
     if (window.top !== window.self) candidatos.push(window.top.document);
   } catch {
     /* cross-origin */
+  }
+  for (const doc of documentosAcessiveis()) {
+    if (!candidatos.includes(doc)) candidatos.push(doc);
   }
 
   for (const doc of candidatos) {
