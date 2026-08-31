@@ -17,6 +17,9 @@ próprio domínio, e a extensão reconhece o padrão, não um endereço fixo.
   pelo bloco e pela árvore do processo, e exportação para CSV. Registros
   marcados como **favoritos** sobrevivem à limpeza, e limpar leva só o que está
   na lista — a aba, o período e a busca que estiverem valendo.
+- **O que você criou e ainda não foi assinado.** A outra metade da pergunta:
+  o histórico diz o que você fez, esta lista diz o que ficou pendente. Sai do
+  que já está guardado, sem consulta nenhuma.
 - **Alerta de bloco de assinatura.** Avisa quando entra bloco novo na sua
   unidade, com contador no ícone, tarja na página e marcador no menu.
 - **Rascunho no editor.** Recupera o texto quando a sessão do SEI expira no

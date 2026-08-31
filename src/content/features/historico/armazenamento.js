@@ -258,6 +258,89 @@ export async function favoritar(id, valor = true) {
   return Boolean(valor);
 }
 
+/* ------------------------------------------------- o que ainda falta assinar
+ *
+ * O historico responde "o que eu fiz". Esta parte responde a outra metade, que
+ * nao existe em lugar nenhum do SEI: "o que eu devo".
+ *
+ * Voce cria um Despacho as 16h, e interrompido, e ele fica la. O bloco de
+ * assinatura mostra o que esta NO BLOCO - nao o que voce criou e deixou solto.
+ *
+ * A juncao e por chave exata, e nao por aproximacao: criacao e assinatura
+ * gravam ids diferentes sobre o MESMO id interno do documento
+ * (`documento-criado:11965` e `doc:11965`).
+ * -------------------------------------------------------------------------- */
+
+const PREFIXO_CRIACAO = 'documento-criado:';
+const PREFIXO_ASSINATURA = 'doc:';
+
+/** O id do documento no SEI, venha o registro de que fonte vier. */
+export function idInternoDe(registro) {
+  if (registro && registro.idInterno) return String(registro.idInterno);
+
+  const id = String((registro && registro.id) || '');
+  for (const prefixo of [PREFIXO_CRIACAO, PREFIXO_ASSINATURA]) {
+    if (id.startsWith(prefixo)) return id.slice(prefixo.length) || null;
+  }
+  return null;
+}
+
+/**
+ * Documentos que voce criou e para os quais nao ha assinatura conhecida.
+ *
+ * "NAO HA ASSINATURA CONHECIDA" e diferente de "nao esta assinado", e a
+ * diferenca importa: o historico e estritamente pessoal, entao a assinatura do
+ * seu chefe no que voce criou nunca foi vista por aqui. Por isso a lista se
+ * corrige sozinha - abrir o processo marca como visto o que a arvore mostrar
+ * assinado (ver `marcarAssinadosVistos`). Quanto mais voce navega, mais exata
+ * ela fica.
+ *
+ * Do mais antigo para o mais novo: o esquecido ha mais tempo e o que interessa.
+ */
+export function pendentesDeAssinatura(registros) {
+  const lista = registros || [];
+
+  const assinados = new Set();
+  for (const registro of lista) {
+    if ((registro.tipoEvento || 'assinatura') !== 'assinatura') continue;
+    const interno = idInternoDe(registro);
+    if (interno) assinados.add(interno);
+  }
+
+  return lista
+    .filter((r) => r.tipoEvento === 'documento-criado' && !r.assinadoVisto)
+    .filter((r) => {
+      const interno = idInternoDe(r);
+      return interno && !assinados.has(interno);
+    })
+    .sort((a, b) => (a.quando < b.quando ? -1 : 1));
+}
+
+/**
+ * Marca como resolvidos os documentos que a arvore mostra assinados.
+ *
+ * A varredura da arvore nao CRIA registro de assinatura alheia - e de proposito,
+ * para nao guardar ato de terceiro. Mas ela pode dizer que o SEU documento ja
+ * foi assinado por alguem, e e isso que tira ele da lista de pendentes.
+ */
+export async function marcarAssinadosVistos(idsInternos) {
+  const ids = [...new Set((idsInternos || []).filter(Boolean).map(String))];
+  if (!ids.length) return 0;
+
+  const dados = await ler();
+  let marcados = 0;
+
+  for (const interno of ids) {
+    const registro = dados.registros[`${PREFIXO_CRIACAO}${interno}`];
+    if (!registro || registro.assinadoVisto) continue;
+    registro.assinadoVisto = true;
+    marcados += 1;
+  }
+
+  if (marcados) await escrever(dados);
+  return marcados;
+}
+
 /**
  * Apaga um conjunto de registros, poupando os favoritos.
  *

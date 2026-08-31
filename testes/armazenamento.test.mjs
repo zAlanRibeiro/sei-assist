@@ -9,6 +9,7 @@
  */
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 const memoria = {};
 
@@ -784,4 +785,154 @@ test('removerVarios com lista vazia não mexe em nada', async () => {
   assert.deepEqual(await hist.removerVarios([]), { apagados: 0, poupados: 0 });
   assert.deepEqual(await hist.removerVarios(null), { apagados: 0, poupados: 0 });
   assert.equal((await meus()).length, 1);
+});
+
+/* ------------------------------------------------- o que ainda falta assinar */
+
+const criado = (idInterno, extra = {}) => ({
+  id: `documento-criado:${idInterno}`,
+  idInterno: String(idInterno),
+  tipoEvento: 'documento-criado',
+  documento: `0010${idInterno}`,
+  quando: quandoAgora(),
+  assinante: DONO,
+  ...extra,
+});
+
+const assinado = (idInterno, extra = {}) => ({
+  id: `doc:${idInterno}`,
+  tipoEvento: 'assinatura',
+  documento: `0010${idInterno}`,
+  quando: quandoAgora(),
+  assinante: DONO,
+  ...extra,
+});
+
+test('idInternoDe lê as duas formas de chave', () => {
+  // Criação e assinatura gravam ids diferentes sobre o MESMO id do documento.
+  // É essa coincidência que permite juntar por chave exata.
+  assert.equal(hist.idInternoDe({ id: 'documento-criado:11965' }), '11965');
+  assert.equal(hist.idInternoDe({ id: 'doc:11965' }), '11965');
+  assert.equal(hist.idInternoDe({ id: 'doc:11965', idInterno: '11965' }), '11965');
+  assert.equal(hist.idInternoDe({ id: 'outra-coisa:9' }), null);
+  assert.equal(hist.idInternoDe(null), null);
+});
+
+test('documento criado e não assinado fica pendente', async () => {
+  await zerar();
+  await hist.registrar(criado(1));
+
+  const pendentes = hist.pendentesDeAssinatura(await meus());
+  assert.deepEqual(pendentes.map((r) => r.idInterno), ['1']);
+});
+
+test('documento com assinatura conhecida sai da lista', async () => {
+  await zerar();
+  await hist.registrar(criado(1));
+  await hist.registrar(assinado(1));
+
+  assert.deepEqual(hist.pendentesDeAssinatura(await meus()), []);
+});
+
+test('a assinatura de OUTRO documento não resolve este', async () => {
+  // Junção por chave exata, e não por proximidade: o erro fácil aqui seria
+  // dar por assinado o documento errado.
+  await zerar();
+  await hist.registrar(criado(1));
+  await hist.registrar(assinado(2));
+
+  assert.deepEqual(
+    hist.pendentesDeAssinatura(await meus()).map((r) => r.idInterno),
+    ['1'],
+  );
+});
+
+test('envio e criação de processo não entram na conta', async () => {
+  // Com idInterno de propósito: sem ele, estes registros seriam descartados
+  // por não ter chave, e o teste passaria mesmo sem o filtro de tipoEvento —
+  // que é justamente o que ele existe para cobrar. Sabotei tirando o filtro e
+  // o teste antigo não caiu.
+  await zerar();
+  await hist.registrar({
+    id: 'env:1',
+    idInterno: '77',
+    tipoEvento: 'envio',
+    quando: quandoAgora(),
+    assinante: DONO,
+  });
+  await hist.registrar({
+    id: 'proc:1',
+    idInterno: '88',
+    tipoEvento: 'processo-criado',
+    quando: quandoAgora(),
+    assinante: DONO,
+  });
+
+  assert.deepEqual(hist.pendentesDeAssinatura(await meus()), []);
+});
+
+test('a varredura da árvore é quem resolve o pendente alheio', () => {
+  // Fiação, não função: os testes acima chamam marcarAssinadosVistos à mão.
+  // Sabotei tirando a chamada da varredura e nenhum deles caiu.
+  const fonte = fs.readFileSync('src/content/features/historico/captura.js', 'utf8');
+
+  assert.match(
+    fonte,
+    /await marcarAssinadosVistos\(assinadosNaArvore\);/,
+    'a árvore precisa marcar como vistos os documentos assinados',
+  );
+  assert.match(
+    fonte,
+    /const assinadosNaArvore = links[\s\S]{0,200}?id_documento/,
+    'e os ids têm de sair dos links de assinatura da árvore',
+  );
+});
+
+test('a árvore resolve o que foi assinado por outra pessoa', async () => {
+  // O histórico é estritamente pessoal: a assinatura do chefe no que você
+  // criou nunca vira registro. Sem esta correção, o documento ficaria
+  // pendente para sempre.
+  await zerar();
+  await hist.registrar(criado(1));
+  assert.equal(hist.pendentesDeAssinatura(await meus()).length, 1);
+
+  const marcados = await hist.marcarAssinadosVistos(['1']);
+
+  assert.equal(marcados, 1);
+  assert.deepEqual(hist.pendentesDeAssinatura(await meus()), []);
+});
+
+test('marcar duas vezes não conta duas vezes', async () => {
+  await zerar();
+  await hist.registrar(criado(1));
+
+  assert.equal(await hist.marcarAssinadosVistos(['1']), 1);
+  assert.equal(await hist.marcarAssinadosVistos(['1']), 0, 'já estava marcado');
+  assert.equal(await hist.marcarAssinadosVistos([]), 0);
+  assert.equal(await hist.marcarAssinadosVistos(null), 0);
+});
+
+test('marcar um id que não é meu não inventa registro', async () => {
+  await zerar();
+
+  assert.equal(await hist.marcarAssinadosVistos(['9999']), 0);
+  assert.equal((await meus()).length, 0);
+});
+
+test('os pendentes vêm do mais antigo para o mais novo', async () => {
+  // O esquecido há mais tempo é o que interessa.
+  await zerar();
+  await hist.registrar(criado(1, { quando: '2026-08-01T10:00:00.000Z' }));
+  await hist.registrar(criado(2, { quando: '2026-08-20T10:00:00.000Z' }));
+  await hist.registrar(criado(3, { quando: '2026-08-10T10:00:00.000Z' }));
+
+  assert.deepEqual(
+    hist.pendentesDeAssinatura(await meus()).map((r) => r.idInterno),
+    ['1', '3', '2'],
+  );
+});
+
+test('lista vazia não quebra', () => {
+  assert.deepEqual(hist.pendentesDeAssinatura([]), []);
+  assert.deepEqual(hist.pendentesDeAssinatura(null), []);
 });
