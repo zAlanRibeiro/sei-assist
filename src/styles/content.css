@@ -451,6 +451,27 @@ a.seix-hist__titulo:hover { text-decoration: underline; }
 
 .seix-hist__so-favoritos { white-space: nowrap; }
 
+/* Terceiro botao da linha, a esquerda da estrela. So aparece em documento
+   pendente - ver pendente() no painel. */
+.seix-hist__resolvido {
+  position: absolute;
+  top: 6px;
+  right: 32px;
+  padding: 0 5px;
+  border: 0;
+  background: transparent;
+  color: var(--seix-cor-texto-fraco, #98a2b3);
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.seix-hist__item:hover .seix-hist__resolvido,
+.seix-hist__resolvido:focus-visible { opacity: 1; }
+.seix-hist__resolvido:hover { color: var(--seix-cor-sucesso, #168821); }
+
 .seix-hist__vazio {
   padding: 22px 6px;
   color: var(--seix-cor-texto-suave, #667085);
