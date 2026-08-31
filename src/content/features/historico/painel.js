@@ -14,6 +14,7 @@ import {
   remover,
   removerVarios,
   favoritar,
+  pendentesDeAssinatura,
   paraCsv,
   onMudanca,
 } from './armazenamento.js';
@@ -296,6 +297,7 @@ export function montarPainel(ctx) {
     tipoEvento: 'tudo',
     via: 'tudo',
     soFavoritos: false,
+    soPendentes: false,
   };
 
   // O historico e so do dono: nao existe controle para ver o de outra pessoa.
@@ -356,6 +358,20 @@ export function montarPainel(ctx) {
     },
   });
   filtros.append(soFavoritos);
+
+  // "Sem assinatura" e um ESTADO, nao um tipo de evento - por isso e um
+  // interruptor entre os filtros, e nao mais uma aba. Fica escondido quando
+  // nao ha nenhum: botao que nunca tem o que mostrar so ocupa a linha.
+  const soPendentes = el('button', {
+    class: 'seix-hist__periodo seix-hist__so-favoritos',
+    title: 'Documentos que você criou e para os quais ainda não vi assinatura',
+    text: 'Sem assinatura',
+    onclick: () => {
+      estado.soPendentes = !estado.soPendentes;
+      render();
+    },
+  });
+  filtros.append(soPendentes);
 
   // Filtro de origem: so faz sentido para assinatura, entao ele aparece e
   // some conforme a aba. Fica montado o tempo todo e escondido por display
@@ -438,8 +454,18 @@ export function montarPainel(ctx) {
     soFavoritos.classList.toggle('seix-hist__periodo--ativo', estado.soFavoritos);
     soFavoritos.setAttribute('aria-pressed', estado.soFavoritos ? 'true' : 'false');
 
+    // Os pendentes sao calculados sobre TUDO, sem periodo: um documento
+    // esquecido ha dois meses e exatamente o que interessa, e o filtro de 30
+    // dias o esconderia.
+    const pendentes = pendentesDeAssinatura(await listar({ identidades }));
+    soPendentes.hidden = pendentes.length === 0;
+    soPendentes.textContent = `Sem assinatura (${pendentes.length})`;
+    soPendentes.classList.toggle('seix-hist__periodo--ativo', estado.soPendentes);
+    soPendentes.setAttribute('aria-pressed', estado.soPendentes ? 'true' : 'false');
+    if (!pendentes.length && estado.soPendentes) estado.soPendentes = false;
+
     const periodo = PERIODOS.find((x) => x.id === estado.periodo);
-    const registros = await listar({
+    const listaFiltrada = await listar({
       busca: estado.busca,
       desde: periodo && periodo.dias ? new Date(Date.now() - periodo.dias * DIA_MS) : null,
       tipoEvento: estado.tipoEvento,
@@ -448,6 +474,7 @@ export function montarPainel(ctx) {
       somenteFavoritos: estado.soFavoritos,
       identidades,
     });
+    const registros = estado.soPendentes ? pendentes : listaFiltrada;
     const total = await contar();
 
     lista.replaceChildren();
@@ -459,7 +486,9 @@ export function montarPainel(ctx) {
           text:
             total === 0
               ? 'Nada registrado ainda. Assine ou envie algo, ou abra um processo antigo para a extensão recolher o que já aconteceu.'
-              : estado.soFavoritos
+              : estado.soPendentes
+                ? 'Nada pendente: tudo que você criou já tem assinatura conhecida.'
+                : estado.soFavoritos
                 ? 'Nenhum favorito ainda. Marque com a estrela o que não pode sumir na limpeza.'
                 : 'Nenhum registro para este filtro.',
         }),

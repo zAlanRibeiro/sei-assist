@@ -50,6 +50,7 @@
  * o usuario copiar o numero.
  */
 import {
+  marcarAssinadosVistos,
   descarregarAtos,
   registrar,
   registrarPorProximidade,
@@ -391,6 +392,14 @@ export async function varrerArvore() {
 
   const processo = acharNup((document.body && document.body.textContent) || '');
   let confirmados = 0;
+
+  // A arvore diz quais documentos ESTAO assinados, inclusive os assinados por
+  // outra pessoa - que a extensao nao registra, de proposito. E disso que a
+  // lista de "sem assinatura" precisa para se corrigir sozinha.
+  const assinadosNaArvore = links
+    .map((link) => paramDaUrl(link.getAttribute('href') || '', 'id_documento'))
+    .filter(Boolean);
+  await marcarAssinadosVistos(assinadosNaArvore);
 
   for (const link of links) {
     const idDocumento = paramDaUrl(link.getAttribute('href') || '', 'id_documento');
