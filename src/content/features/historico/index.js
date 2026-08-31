@@ -156,6 +156,7 @@ export default {
     nomeUsuario: 'Seu nome no SEI (só se a detecção falhar)',
     periodoPadrao: 'Período inicial do filtro (7, 30 ou tudo)',
     varrerAoAbrirProcesso: 'Coletar ao abrir um processo',
+    confirmarRemocao: 'Perguntar antes de remover um registro',
     loginUsuario: 'Seu login no SEI (só se a detecção falhar)',
   },
 
@@ -167,6 +168,10 @@ export default {
     loginUsuario: '',
     periodoPadrao: '30',
     varrerAoAbrirProcesso: true,
+    // Ligada. A caixa "nao perguntar de novo" no proprio dialogo desliga - e
+    // a opcao continua aqui para quem quiser voltar atras depois de marcar.
+    // Favorito ignora isto: la a pergunta e sempre feita.
+    confirmarRemocao: true,
   },
 
   telas: ['*'],

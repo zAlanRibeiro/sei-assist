@@ -666,6 +666,7 @@ details > *:not(summary) { margin-top: .6rem; font-size: .9375rem; color: var(--
         <li>Favorito também não cai no teto de 5.000 registros: quando o histórico enche, os comuns saem primeiro.</li>
         <li>Estando na aba <strong>Processos criados</strong>, o botão leva só processos criados. Sem filtro nenhum, leva tudo.</li>
         <li>Para esvaziar a lista de vez, limpe uma segunda vez — aí a extensão pergunta se é para apagar os favoritos também.</li>
+        <li>O <strong>x</strong> de um favorito <strong>sempre</strong> pede confirmação — ele fica a um pixel da estrela. Nos demais, a confirmação traz uma caixa <em>“não perguntar de novo”</em>.</li>
       </ul>
     </section>
 
@@ -866,10 +867,11 @@ details > *:not(summary) { margin-top: .6rem; font-size: .9375rem; color: var(--
           </thead>
           <tbody>
             <tr>
-              <td rowspan="3">Histórico</td>
+              <td rowspan="4">Histórico</td>
               <td>Período inicial do filtro</td><td>30 dias</td>
             </tr>
             <tr><td>Coletar ao abrir um processo</td><td>ligado</td></tr>
+            <tr><td>Perguntar antes de remover um registro</td><td>ligado</td></tr>
             <tr><td>Seu nome e login no SEI <span class="nome-opcao">(só se a detecção falhar)</span></td><td>vazio</td></tr>
             <tr>
               <td rowspan="3">Alerta de bloco</td>

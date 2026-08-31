@@ -5,6 +5,7 @@
  * exportacao para CSV. So le o armazenamento; nao toca no SEI.
  */
 import { el } from '../../core/dom.js';
+import { setOpcoesFeature } from '../../core/settings.js';
 import { painel as abrirPainel, toast, confirmar as confirmarDialogo } from '../../core/ui.js';
 import {
   listar,
@@ -149,6 +150,29 @@ function copiavel(texto, { classe, titulo }) {
   });
 }
 
+/**
+ * Perguntar antes de remover? E com a saida de "nao perguntar de novo"?
+ *
+ * Duas regras, e a diferenca entre elas e o ponto:
+ *
+ *   - FAVORITO pergunta SEMPRE, e sem oferecer a caixa. A estrela existe
+ *     para dizer "este nao pode sumir", e o "x" fica a um pixel dela; deixar
+ *     um clique errado levar o registro calado desfaz a promessa por engano.
+ *     E desligar esse aviso por uma caixinha marcada de passagem seria
+ *     desproteger o que a pessoa protegeu a mao.
+ *   - O RESTO pergunta uma vez e aceita ser calado. Quem limpa registro
+ *     comum o dia todo nao quer um dialogo por clique.
+ *
+ * Pura de proposito: e politica, nao desenho, e politica sobre apagar dado
+ * merece teste.
+ */
+export function comoRemover(registro, opcoes = {}) {
+  if (registro && registro.favorito) {
+    return { perguntar: true, comCaixa: false };
+  }
+  return { perguntar: opcoes.confirmarRemocao !== false, comCaixa: true };
+}
+
 function linhaDeRegistro(registro, aoRemover, aoFavoritar) {
   const tipo = tipoDe(registro);
   const evento = EVENTOS[tipo];
@@ -258,7 +282,7 @@ function linhaDeRegistro(registro, aoRemover, aoFavoritar) {
         class: 'seix-hist__remover',
         title: 'Remover do histórico',
         text: 'x',
-        onclick: () => aoRemover(registro.id),
+        onclick: () => aoRemover(),
       }),
     ],
   );
@@ -451,10 +475,7 @@ export function montarPainel(ctx) {
         lista.append(
           linhaDeRegistro(
             registro,
-            async (id) => {
-              await remover(id);
-              render();
-            },
+            () => removerComCuidado(registro),
             async (id, valor) => {
               await favoritar(id, valor);
               render();
@@ -486,6 +507,50 @@ export function montarPainel(ctx) {
         }),
       ]),
     );
+  }
+
+  /**
+   * Remover um registro, perguntando quando vale a pena.
+   *
+   * FAVORITO PERGUNTA SEMPRE. A estrela existe justamente para dizer "este
+   * nao pode sumir"; deixar que um clique errado no "x" o leve calado seria
+   * desfazer a promessa por engano - e o "x" fica a um pixel da estrela.
+   *
+   * O resto pergunta uma vez e aceita ser calado: quem apaga registro comum
+   * o dia todo nao quer um dialogo por clique. A caixa que desliga fica no
+   * proprio dialogo, e a opcao continua nas Opcoes para voltar atras.
+   */
+  async function removerComCuidado(registro) {
+    const ehFavorito = Boolean(registro.favorito);
+    const { perguntar, comCaixa } = comoRemover(registro, ctx.opcoes);
+
+    if (!perguntar) {
+      await remover(registro.id);
+      render();
+      return;
+    }
+
+    const ok = await confirmarDialogo({
+      titulo: ehFavorito ? 'Remover um favorito?' : 'Remover do histórico',
+      texto: ehFavorito
+        ? 'Este registro está marcado como favorito — foi você que pediu para ele não sumir. ' +
+          'Removê-lo agora é definitivo, e não afeta nada no SEI.'
+        : 'Isso remove o registro deste navegador. Não afeta nada no SEI, e não dá para desfazer.',
+      confirmarTexto: 'Remover',
+      // Favorito não oferece a saída: uma marca que a pessoa pôs à mão não
+      // pode ser desprotegida por uma caixinha marcada de passagem.
+      lembrar: comCaixa ? 'Não perguntar de novo ao remover' : null,
+      aoLembrar: async (marcada) => {
+        if (!marcada) return;
+        ctx.opcoes.confirmarRemocao = false;
+        await setOpcoesFeature('historico-assinaturas', { confirmarRemocao: false });
+        toast('Não vou mais perguntar. Dá para religar nas Opções.', { tipo: 'info' });
+      },
+    });
+    if (!ok) return;
+
+    await remover(registro.id);
+    render();
   }
 
   /**
