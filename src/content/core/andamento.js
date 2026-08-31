@@ -16,7 +16,8 @@
  * celula que parece data/hora e a celula que casa com um padrao conhecido.
  * Assim ele sobrevive a uma tela com colunas a mais, a menos ou trocadas.
  */
-import { qsa, textoProprio } from './dom.js';
+import { documentosAcessiveis, qsa, textoProprio } from './dom.js';
+import { log } from './log.js';
 
 /**
  * Tela "Consultar Andamento": o historico oficial do processo.
@@ -323,7 +324,10 @@ export function acharTabela(doc = document) {
  * ------------------------------------------------------------------------ */
 
 export const ABERTAS = {
-  rotulo: /processo\s+aberto\s+na?s?\s+unidades?/i,
+  // Aceita "nas unidades", "na(s) unidade(s)" e "na unidade": o parêntese do
+  // plural opcional aparece em várias telas do SEI, e um "s" solto na
+  // expressão não cobre "na(s)".
+  rotulo: /processo\s+aberto\s+n\S{0,4}\s+unidade/i,
   /** Sigla de unidade: caixa alta com pelo menos uma barra. */
   sigla: /\b[A-Z][A-Z0-9]*(?:\/[A-Z0-9._-]+)+/g,
   /** Onde procurar. Lista fechada: varrer '*' percorreria a pagina inteira. */
@@ -351,11 +355,11 @@ function siglasDentro(no) {
 }
 
 /**
- * As unidades em que o processo esta aberto AGORA, segundo o proprio SEI.
+ * A caixa dentro de UM documento.
  *
- * @returns {string[]|null} null quando a caixa nao esta nesta tela.
+ * @returns {string[]|null} null quando a caixa nao esta neste documento.
  */
-export function lerUnidadesAbertas(doc = document) {
+export function lerUnidadesAbertasEm(doc = document) {
   let melhor = null;
 
   for (const no of qsa(ABERTAS.folhas, doc)) {
@@ -375,4 +379,54 @@ export function lerUnidadesAbertas(doc = document) {
   }
 
   return melhor ? melhor.siglas : null;
+}
+
+/**
+ * As unidades em que o processo esta aberto AGORA, segundo o proprio SEI.
+ *
+ * Varre os frames alcancaveis, e nao so o local: a tela do SEI e feita de
+ * frames irmaos, e a caixa pode estar em outro que nao o da tabela de
+ * andamento. Procurar so no frame local devolvia null - e o selo caia de
+ * volta na deducao pelo andamento, que NAO tem como acertar: ela nao sabe do
+ * "manter aberto na unidade atual", entao so erra para menos.
+ *
+ * @returns {string[]|null} null quando a caixa nao esta em lugar nenhum.
+ */
+export function lerUnidadesAbertas(docs = null) {
+  const candidatos = docs || documentosAcessiveis();
+  for (const doc of candidatos) {
+    try {
+      const achadas = lerUnidadesAbertasEm(doc);
+      if (achadas) return achadas;
+    } catch {
+      /* frame de outra origem, ou documento ainda montando */
+    }
+  }
+  return null;
+}
+
+/**
+ * O que a tela mostra sobre unidades abertas, para quem for confirmar.
+ *
+ * Mesmo recurso que destravou o alerta de bloco e o nivel de acesso: quando a
+ * leitura falha, relatar o que HA na tela vale mais que outro chute.
+ */
+export function diagnosticarAbertas(docs = null) {
+  const candidatos = docs || documentosAcessiveis();
+  const relato = candidatos.map((doc, i) => {
+    try {
+      const corpo = ((doc.body && doc.body.textContent) || '').replace(/s+/g, ' ');
+      const trecho = corpo.search(ABERTAS.rotulo);
+      return {
+        frame: i,
+        temRotulo: trecho >= 0,
+        aoRedor: trecho >= 0 ? corpo.slice(trecho, trecho + 120) : '',
+        achou: lerUnidadesAbertasEm(doc),
+      };
+    } catch (err) {
+      return { frame: i, erro: String(err && err.message) };
+    }
+  });
+  log.debug('unidades abertas: o que ha em cada frame', relato);
+  return relato;
 }

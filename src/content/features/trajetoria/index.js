@@ -15,7 +15,12 @@
  */
 import { el } from '../../core/dom.js';
 import { log } from '../../core/log.js';
-import { acharTabela, lerAndamentos, lerUnidadesAbertas } from '../../core/andamento.js';
+import {
+  acharTabela,
+  diagnosticarAbertas,
+  lerAndamentos,
+  lerUnidadesAbertas,
+} from '../../core/andamento.js';
 import { emUmaLinha, frasearAbertas, selo, trajetoria } from './trajetoria.js';
 
 const ID = 'seix-trajetoria';
@@ -119,7 +124,13 @@ export default {
       const tabela = acharTabela();
       if (!tabela || !tabela.parentElement) return;
 
-      tabela.parentElement.insertBefore(montarFaixa(paradas, agora, lerUnidadesAbertas()), tabela);
+      // A lista do SEI e a unica fonte que sabe do "manter aberto na unidade
+      // atual". Sem ela o selo deduz pelo andamento, e a deducao so erra para
+      // menos - por isso, quando falta, vale relatar o que ha na tela.
+      const abertasNoSei = lerUnidadesAbertas();
+      if (!abertasNoSei) diagnosticarAbertas();
+
+      tabela.parentElement.insertBefore(montarFaixa(paradas, agora, abertasNoSei), tabela);
       log.debug(`trajetoria: ${paradas.length} parada(s)`);
     };
 
