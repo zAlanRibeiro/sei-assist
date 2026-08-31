@@ -20,7 +20,7 @@ sincroniza entre dispositivos.
 
 | O quê | Para quê | Por quanto tempo |
 | --- | --- | --- |
-| Histórico de atos seus (assinou, enviou, criou) | Montar o painel de histórico | Até você apagar |
+| Histórico de atos seus (assinou, enviou, criou) | Montar o painel de histórico | Até você apagar; favoritos ficam até você desmarcar |
 | Rascunho do editor (nunca de documento restrito) | Recuperar texto se a sessão do SEI expirar | 3 dias, ou até salvar o documento |
 | Estado do bloco de assinatura | Saber o que é novidade desde a última olhada | Substituído a cada consulta |
 | Preferências | Atalhos, intervalos, o que está ligado | Até você desinstalar |

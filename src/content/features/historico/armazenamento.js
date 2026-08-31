@@ -89,14 +89,36 @@ async function escrever(dados) {
   );
 }
 
-/** Descarta os mais antigos quando passa do teto. */
+/**
+ * Descarta os mais antigos quando passa do teto.
+ *
+ * FAVORITO SAI POR ULTIMO. Quem marcou um registro disse, com todas as
+ * letras, que quer aquele guardado - e perde-lo por causa do teto seria a
+ * mesma quebra de promessa que perde-lo na limpeza.
+ *
+ * Mas a promessa nao vira crescimento sem limite: se so os favoritos ja
+ * passarem do teto, os mais antigos DELES tambem caem. O teto e absoluto;
+ * favorito muda a ordem da fila, nao a existencia dela.
+ */
 function aparar(registros) {
   const ids = Object.keys(registros);
   if (ids.length <= MAX_REGISTROS) return registros;
 
-  const ordenados = ids.sort((a, b) => (registros[a].quando < registros[b].quando ? -1 : 1));
-  for (const id of ordenados.slice(0, ids.length - MAX_REGISTROS)) delete registros[id];
-  log.warn(`historico passou de ${MAX_REGISTROS} registros; os mais antigos foram descartados`);
+  const doMaisVelho = (a, b) => (registros[a].quando < registros[b].quando ? -1 : 1);
+  const comuns = ids.filter((id) => !registros[id].favorito).sort(doMaisVelho);
+  const favoritos = ids.filter((id) => registros[id].favorito).sort(doMaisVelho);
+
+  // A fila de descarte: primeiro todos os comuns, do mais velho ao mais novo;
+  // só depois os favoritos, na mesma ordem.
+  const fila = [...comuns, ...favoritos];
+  const quantos = ids.length - MAX_REGISTROS;
+  for (const id of fila.slice(0, quantos)) delete registros[id];
+
+  const favoritosPerdidos = fila.slice(0, quantos).filter((id) => favoritos.includes(id)).length;
+  log.warn(
+    `historico passou de ${MAX_REGISTROS} registros; ${quantos} descartado(s)` +
+      (favoritosPerdidos ? `, incluindo ${favoritosPerdidos} favorito(s)` : ', nenhum favorito'),
+  );
   return registros;
 }
 
@@ -137,6 +159,10 @@ export async function registrar(novo) {
         quando: melhorData(antigo, novo),
         quandoExato: antigo.quandoExato || Boolean(novo.quandoExato),
         confirmado: antigo.confirmado || Boolean(novo.confirmado),
+        // Favorito é escolha da pessoa, não dado colhido da tela: nenhuma
+        // fonte pode desmarcar. Sem esta linha, o mesmo documento visto de
+        // novo pela árvore apagaria a estrela em silêncio.
+        favorito: antigo.favorito || Boolean(novo.favorito),
       }
     : novo;
 
@@ -211,8 +237,51 @@ export async function remover(id) {
   await escrever(dados);
 }
 
-export async function limpar() {
-  await escrever(vazio());
+/**
+ * Marca ou desmarca um registro como favorito.
+ *
+ * Favorito é a única marca do histórico que a pessoa põe à mão — todo o
+ * resto é colhido da tela. É por isso que ela sobrevive à limpeza e à poda:
+ * é a única informação aqui que ninguém consegue recuperar depois.
+ *
+ * @returns {boolean|null} o estado novo, ou null se o registro não existe.
+ */
+export async function favoritar(id, valor = true) {
+  const dados = await ler();
+  const registro = dados.registros[id];
+  if (!registro) return null;
+
+  registro.favorito = Boolean(valor);
+  if (!registro.favorito) delete registro.favorito;
+
+  await escrever(dados);
+  return Boolean(valor);
+}
+
+/** Quantos registros a limpeza levaria e quantos ficariam. */
+export function separarFavoritos(registros) {
+  const lista = Object.entries(registros || {});
+  const guardados = Object.fromEntries(lista.filter(([, r]) => r && r.favorito));
+  return { guardados, quantosSaem: lista.length - Object.keys(guardados).length };
+}
+
+/**
+ * Limpa o histórico, PRESERVANDO os favoritos.
+ *
+ * O favorito existe justamente para não sumir aqui. Quem quiser apagar tudo
+ * mesmo passa `inclusiveFavoritos` — e isso é uma segunda decisão, tomada
+ * numa segunda confirmação, não um efeito colateral da primeira.
+ */
+export async function limpar({ inclusiveFavoritos = false } = {}) {
+  if (inclusiveFavoritos) {
+    await escrever(vazio());
+    return { restaram: 0 };
+  }
+
+  const dados = await ler();
+  const { guardados } = separarFavoritos(dados.registros);
+  await escrever({ ...vazio(), registros: guardados });
+  return { restaram: Object.keys(guardados).length };
 }
 
 /**
@@ -232,6 +301,9 @@ export async function listar(filtro = {}) {
   }
   if (filtro.somenteConfirmados) {
     lista = lista.filter((r) => r.confirmado);
+  }
+  if (filtro.somenteFavoritos) {
+    lista = lista.filter((r) => r.favorito);
   }
   // Por onde o ato passou. Registro antigo e registro recolhido do corpo do
   // documento nao tem essa informacao - a assinatura ja aconteceu quando a

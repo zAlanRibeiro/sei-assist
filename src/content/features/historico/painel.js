@@ -6,7 +6,15 @@
  */
 import { el } from '../../core/dom.js';
 import { painel as abrirPainel, toast, confirmar as confirmarDialogo } from '../../core/ui.js';
-import { listar, contar, limpar, remover, paraCsv, onMudanca } from './armazenamento.js';
+import {
+  listar,
+  contar,
+  limpar,
+  remover,
+  favoritar,
+  paraCsv,
+  onMudanca,
+} from './armazenamento.js';
 import { identidadesDoDono } from './sessao.js';
 
 const DIA_MS = 24 * 60 * 60 * 1000;
@@ -140,7 +148,7 @@ function copiavel(texto, { classe, titulo }) {
   });
 }
 
-function linhaDeRegistro(registro, aoRemover) {
+function linhaDeRegistro(registro, aoRemover, aoFavoritar) {
   const tipo = tipoDe(registro);
   const evento = EVENTOS[tipo];
   const titulo = evento.titulo(registro);
@@ -235,6 +243,17 @@ function linhaDeRegistro(registro, aoRemover) {
       cabecalho,
       el('div', { class: 'seix-hist__detalhes' }, detalhes),
       el('button', {
+        class: registro.favorito
+          ? 'seix-hist__favorito seix-hist__favorito--ativo'
+          : 'seix-hist__favorito',
+        title: registro.favorito
+          ? 'Favorito: fica mesmo quando você limpar o histórico. Clique para desmarcar.'
+          : 'Favoritar: fica mesmo quando você limpar o histórico.',
+        'aria-pressed': registro.favorito ? 'true' : 'false',
+        text: registro.favorito ? '★' : '☆',
+        onclick: () => aoFavoritar(registro.id, !registro.favorito),
+      }),
+      el('button', {
         class: 'seix-hist__remover',
         title: 'Remover do histórico',
         text: 'x',
@@ -251,6 +270,7 @@ export function montarPainel(ctx) {
     periodo: ctx.opcoes.periodoPadrao || '30',
     tipoEvento: 'tudo',
     via: 'tudo',
+    soFavoritos: false,
   };
 
   // O historico e so do dono: nao existe controle para ver o de outra pessoa.
@@ -298,6 +318,19 @@ export function montarPainel(ctx) {
       }),
     ),
   );
+
+  // Favoritos: um interruptor, não um período. Fica ao lado dos períodos
+  // porque é onde a pessoa já está olhando quando quer estreitar a lista.
+  const soFavoritos = el('button', {
+    class: 'seix-hist__periodo seix-hist__so-favoritos',
+    title: 'Mostrar só os favoritos',
+    text: '★ Favoritos',
+    onclick: () => {
+      estado.soFavoritos = !estado.soFavoritos;
+      render();
+    },
+  });
+  filtros.append(soFavoritos);
 
   // Filtro de origem: so faz sentido para assinatura, entao ele aparece e
   // some conforme a aba. Fica montado o tempo todo e escondido por display
@@ -377,6 +410,9 @@ export function montarPainel(ctx) {
       );
     }
 
+    soFavoritos.classList.toggle('seix-hist__periodo--ativo', estado.soFavoritos);
+    soFavoritos.setAttribute('aria-pressed', estado.soFavoritos ? 'true' : 'false');
+
     const periodo = PERIODOS.find((x) => x.id === estado.periodo);
     const registros = await listar({
       busca: estado.busca,
@@ -384,6 +420,7 @@ export function montarPainel(ctx) {
       tipoEvento: estado.tipoEvento,
       // O filtro de origem so vale onde ele aparece.
       via: soAssinaturas ? estado.via : 'tudo',
+      somenteFavoritos: estado.soFavoritos,
       identidades,
     });
     const total = await contar();
@@ -397,7 +434,9 @@ export function montarPainel(ctx) {
           text:
             total === 0
               ? 'Nada registrado ainda. Assine ou envie algo, ou abra um processo antigo para a extensão recolher o que já aconteceu.'
-              : 'Nenhum registro para este filtro.',
+              : estado.soFavoritos
+                ? 'Nenhum favorito ainda. Marque com a estrela o que não pode sumir na limpeza.'
+                : 'Nenhum registro para este filtro.',
         }),
       );
     } else {
@@ -409,10 +448,17 @@ export function montarPainel(ctx) {
           lista.append(el('li', { class: 'seix-hist__dia', text: dia }));
         }
         lista.append(
-          linhaDeRegistro(registro, async (id) => {
-            await remover(id);
-            render();
-          }),
+          linhaDeRegistro(
+            registro,
+            async (id) => {
+              await remover(id);
+              render();
+            },
+            async (id, valor) => {
+              await favoritar(id, valor);
+              render();
+            },
+          ),
         );
       }
     }
@@ -433,22 +479,63 @@ export function montarPainel(ctx) {
         }),
         el('button', {
           class: 'seix-btn seix-btn--secundario',
-          text: 'Limpar tudo',
-          onclick: async () => {
-            const ok = await confirmarDialogo({
-              titulo: 'Limpar o histórico',
-              texto:
-                'Isso apaga todos os registros guardados pela extensão neste navegador. Não afeta nada no SEI, mas não dá para desfazer.',
-              confirmarTexto: 'Apagar tudo',
-            });
-            if (!ok) return;
-            await limpar();
-            toast('Histórico apagado.', { tipo: 'sucesso' });
-            render();
-          },
+          text: 'Limpar',
+          onclick: () => limparComCuidado(),
         }),
       ]),
     );
+  }
+
+  /**
+   * Limpar em dois passos, e nunca por acidente.
+   *
+   * O primeiro "Limpar" preserva os favoritos — é para isso que a estrela
+   * existe. Quando só restam favoritos, o mesmo botão pergunta se é para
+   * apagar também eles: assim dá para chegar ao vazio, mas só dizendo sim
+   * duas vezes, em telas diferentes.
+   */
+  async function limparComCuidado() {
+    const total = await contar();
+    const favoritos = (await listar({ somenteFavoritos: true, identidades })).length;
+    const comuns = total - favoritos;
+
+    if (!total) {
+      toast('O histórico já está vazio.', { tipo: 'info' });
+      return;
+    }
+
+    if (comuns > 0) {
+      const ok = await confirmarDialogo({
+        titulo: 'Limpar o histórico',
+        texto: favoritos
+          ? `Isso apaga ${comuns} registro(s) deste navegador. Os ${favoritos} favorito(s) ficam. Não afeta nada no SEI, e não dá para desfazer.`
+          : 'Isso apaga todos os registros guardados pela extensão neste navegador. Não afeta nada no SEI, mas não dá para desfazer.',
+        confirmarTexto: `Apagar ${comuns}`,
+      });
+      if (!ok) return;
+
+      const { restaram } = await limpar();
+      toast(
+        restaram
+          ? `${comuns} apagado(s). ${restaram} favorito(s) mantido(s).`
+          : 'Histórico apagado.',
+        { tipo: 'sucesso' },
+      );
+      render();
+      return;
+    }
+
+    // Só restam favoritos: a segunda pergunta.
+    const ok = await confirmarDialogo({
+      titulo: 'Apagar também os favoritos?',
+      texto: `Só restam ${favoritos} favorito(s). Eles foram marcados para não sumir na limpeza — apagar agora é definitivo.`,
+      confirmarTexto: 'Apagar os favoritos',
+    });
+    if (!ok) return;
+
+    await limpar({ inclusiveFavoritos: true });
+    toast('Histórico apagado, favoritos inclusive.', { tipo: 'sucesso' });
+    render();
   }
 
   // Mantem o painel em dia se outra aba/frame gravar algo.
