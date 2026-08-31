@@ -207,3 +207,134 @@ test('tela sem a linha devolve null em vez de chutar', () => {
   const { raiz } = tela({ qualquer: ['Salvar', 'Cancelar', 'Pesquisar'] });
   assert.equal(acharLinhaDeLinks(raiz), null);
 });
+
+/* --------------------------------------- documentos de um bloco de assinatura */
+
+const { documentosAssinadosNoBloco } = await import(
+  '../src/content/features/historico/seletores.js'
+);
+const { elemento, instalarDocumento } = await import('./domFalso.mjs');
+
+/**
+ * A tela real "Documentos do Bloco de Assinatura" (rel_bloco_protocolo_listar).
+ *
+ * A coluna "Assinaturas" vazia foi capturada de um bloco disponibilizado e
+ * ainda não assinado — é o caso confirmado. O preenchido não foi visto, e por
+ * isso a regra é "tem conteúdo = tem assinatura": não depende de saber COMO
+ * ele é preenchido.
+ */
+function telaDoBloco(linhas) {
+  const th = (t) => elemento('th', { class: 'infraTh' }, [t]);
+
+  return elemento('body', {}, [
+    elemento('table', { id: 'tblProtocolosBlocos', class: 'infraTable' }, [
+      elemento('tr', {}, [
+        th(''),
+        th('Seq.'),
+        th('Processo'),
+        th('Documento'),
+        th('Tipo'),
+        th('Assinaturas'),
+        th('Anotações'),
+        th('Ações'),
+      ]),
+      ...linhas.map(([numero, assinaturas], i) =>
+        elemento('tr', { id: `trPos${i}` }, [
+          elemento('td', {}, ['']),
+          elemento('td', { 'data-label': 'Seq.' }, [String(i + 1)]),
+          elemento('td', { 'data-label': 'Processo' }, ['NIT-050131/004049/2026']),
+          elemento('td', { 'data-label': 'Documento' }, [
+            elemento('a', { class: 'protocoloAberto', href: '#' }, [numero]),
+          ]),
+          elemento('td', { 'data-label': 'Tipo' }, ['Despacho']),
+          elemento('td', { 'data-label': 'Assinaturas' }, [assinaturas]),
+          elemento('td', { 'data-label': 'Anotações' }, ['']),
+          elemento('td', { 'data-label': 'Ações' }, ['']),
+        ]),
+      ),
+    ]),
+  ]);
+}
+
+test('documento sem assinatura não é dado por assinado', () => {
+  // É o caso confirmado na captura: bloco disponibilizado, coluna vazia.
+  const raiz = telaDoBloco([['00102458', '']]);
+  instalarDocumento(raiz);
+
+  assert.deepEqual(documentosAssinadosNoBloco(raiz), []);
+});
+
+test('coluna Assinaturas preenchida marca o documento', () => {
+  const raiz = telaDoBloco([['00102458', 'Alan Doyle Costa Ribeiro']]);
+  instalarDocumento(raiz);
+
+  assert.deepEqual(documentosAssinadosNoBloco(raiz), ['00102458']);
+});
+
+test('espaço em branco não conta como assinatura', () => {
+  // A célula vazia da captura vem com espaço; tratar isso como conteúdo
+  // resolveria como assinado tudo que estivesse no bloco.
+  const raiz = telaDoBloco([['00102458', '   ']]);
+  instalarDocumento(raiz);
+
+  assert.deepEqual(documentosAssinadosNoBloco(raiz), []);
+});
+
+test('separa assinados de não assinados na mesma tela', () => {
+  const raiz = telaDoBloco([
+    ['00102458', 'Alan'],
+    ['00102679', ''],
+    ['00098310', 'Naiara'],
+  ]);
+  instalarDocumento(raiz);
+
+  assert.deepEqual(documentosAssinadosNoBloco(raiz), ['00102458', '00098310']);
+});
+
+test('a linha de cabeçalho não vira documento', () => {
+  const raiz = telaDoBloco([['00102458', 'Alan']]);
+  instalarDocumento(raiz);
+
+  assert.equal(documentosAssinadosNoBloco(raiz).includes('Documento'), false);
+});
+
+test('outra tela qualquer devolve lista vazia', () => {
+  // A varredura roda em todo lugar: não pode inventar nada fora desta tela.
+  const raiz = elemento('body', {}, [elemento('p', {}, ['Controle de Processos'])]);
+  instalarDocumento(raiz);
+
+  assert.deepEqual(documentosAssinadosNoBloco(raiz), []);
+});
+
+test('lê a tabela do bloco, e não outra tabela da mesma página', () => {
+  // A tela do SEI tem mais tabelas. Sem o id, a primeira da página venceria —
+  // e ela pode ter colunas de nome parecido.
+  const outra = elemento('table', { class: 'infraTable' }, [
+    elemento('tr', {}, [
+      elemento('th', {}, ['Documento']),
+      elemento('th', {}, ['Assinaturas']),
+    ]),
+    elemento('tr', {}, [
+      elemento('td', {}, ['00000000']),
+      elemento('td', {}, ['não é daqui']),
+    ]),
+  ]);
+
+  const doBloco = telaDoBloco([['00102458', 'Alan']]);
+  const raiz = elemento('body', {}, [outra, ...doBloco.children]);
+  instalarDocumento(raiz);
+
+  assert.deepEqual(documentosAssinadosNoBloco(raiz), ['00102458']);
+});
+
+test('tabela sem as colunas esperadas não produz nada', () => {
+  const raiz = elemento('body', {}, [
+    elemento('table', { id: 'tblProtocolosBlocos' }, [
+      elemento('tr', {}, [elemento('th', {}, ['Outra']), elemento('th', {}, ['Coisa'])]),
+      elemento('tr', {}, [elemento('td', {}, ['x']), elemento('td', {}, ['y'])]),
+    ]),
+  ]);
+  instalarDocumento(raiz);
+
+  assert.deepEqual(documentosAssinadosNoBloco(raiz), []);
+});

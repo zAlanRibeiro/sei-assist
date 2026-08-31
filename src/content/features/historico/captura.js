@@ -51,6 +51,7 @@
  */
 import {
   marcarAssinadosVistos,
+  marcarAssinadosPorNumero,
   descarregarAtos,
   registrar,
   registrarPorProximidade,
@@ -66,6 +67,7 @@ import {
   PENDENCIA_DOCUMENTO,
 } from './armazenamento.js';
 import {
+  documentosAssinadosNoBloco,
   processosParaEnviar,
   idsParaAssinar,
   ANDAMENTO,
@@ -889,6 +891,26 @@ let varrendo = false;
  * (documento e andamento) nao gravam nada - por seguranca, e melhor um
  * historico vazio do que um historico com evento dos outros.
  */
+/**
+ * Documentos do bloco: resolve o pendente assinado por outra pessoa.
+ *
+ * E a tela onde se confere o que foi mandado para assinar, e a unica que
+ * responde a pergunta sem abrir o processo. A varredura da arvore nao serve
+ * aqui: esta tela nao tem link de assinaturas nenhum - o que ela tem e uma
+ * COLUNA "Assinaturas", e o sinal e ela ter conteudo.
+ *
+ * So marca como visto. Nao cria registro de assinatura alheia, como em
+ * nenhum outro lugar do projeto.
+ */
+export async function varrerBlocoDeAssinatura() {
+  const numeros = documentosAssinadosNoBloco();
+  if (!numeros.length) return 0;
+
+  const marcados = await marcarAssinadosPorNumero(numeros);
+  if (marcados) log.info(`bloco: ${marcados} pendente(s) resolvido(s)`);
+  return marcados;
+}
+
 export async function varrer(identidades = []) {
   if (varrendo) return 0;
   varrendo = true;
@@ -896,7 +918,8 @@ export async function varrer(identidades = []) {
     const doCorpo = await varrerDocumentoVisivel(identidades);
     const daArvore = await varrerArvore();
     const doAndamento = await varrerAndamento(identidades);
-    return doCorpo + daArvore + doAndamento;
+    const doBloco = await varrerBlocoDeAssinatura();
+    return doCorpo + daArvore + doAndamento + doBloco;
   } catch (err) {
     log.error('falha na varredura:', err);
     return 0;

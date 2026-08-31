@@ -342,6 +342,33 @@ export async function marcarAssinadosVistos(idsInternos) {
 }
 
 /**
+ * O mesmo que `marcarAssinadosVistos`, mas pelo NUMERO visivel.
+ *
+ * A tela de documentos do bloco nao expoe o id interno em lugar nenhum - o
+ * link do documento e `href="#"` com onclick. O que ela mostra e o numero, que
+ * e a outra chave que os registros carregam.
+ */
+export async function marcarAssinadosPorNumero(numeros) {
+  const alvos = [...new Set((numeros || []).filter(Boolean).map(String))];
+  if (!alvos.length) return 0;
+
+  const dados = await ler();
+  const internos = [];
+
+  // Sem filtrar por tipo de proposito: quem garante que so criacao e marcada
+  // e o PREFIXO usado por marcarAssinadosVistos, que so encontra chave
+  // `documento-criado:X`. Uma guarda aqui seria linha morta - sabotei tirando
+  // e nenhum teste caiu.
+  for (const registro of Object.values(dados.registros)) {
+    if (!alvos.includes(String(registro.documento))) continue;
+    const interno = idInternoDe(registro);
+    if (interno) internos.push(interno);
+  }
+
+  return marcarAssinadosVistos(internos);
+}
+
+/**
  * Apaga um conjunto de registros, poupando os favoritos.
  *
  * Existe porque "limpar" passou a significar "limpar o que está nesta lista",
