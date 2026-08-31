@@ -652,3 +652,86 @@ test('o rótulo com parêntese de plural também casa', () => {
 
   assert.deepEqual(lerUnidadesAbertasEm(doc), [DIVEST]);
 });
+
+/* ------------------------------------------ lembrar as unidades abertas */
+
+const { chaveDe, noPrazo, idDoProcesso, VALIDADE_MS } = await import(
+  '../src/content/features/trajetoria/abertas.js'
+);
+
+test('a chave separa processos de SEI diferentes', () => {
+  // Quem usa produção e homologação tem processos de mesmo id nos dois.
+  assert.notEqual(
+    chaveDe('https://a.sei.gov.br', '9233'),
+    chaveDe('https://b.sei.gov.br', '9233'),
+  );
+  assert.equal(chaveDe('https://a.sei.gov.br', ''), null, 'sem id não há chave');
+  assert.equal(chaveDe('https://a.sei.gov.br', null), null);
+});
+
+test('a lembrança vence', () => {
+  const agora = Date.parse('2026-08-31T12:00:00');
+  const registro = (minutos) => ({
+    unidades: ['NIT/A'],
+    quando: agora - minutos * 60 * 1000,
+  });
+
+  assert.equal(noPrazo(registro(1), agora), true);
+  assert.equal(noPrazo(registro(29), agora), true);
+  assert.equal(noPrazo(registro(31), agora), false, 'meia hora é o limite');
+});
+
+test('lembrança vazia ou corrompida não vale', () => {
+  // Guardar lista vazia seria pior que não guardar: apagaria a dedução sem
+  // pôr nada no lugar.
+  assert.equal(noPrazo(null), false);
+  assert.equal(noPrazo({ unidades: [], quando: Date.now() }), false);
+  assert.equal(noPrazo({ unidades: ['NIT/A'] }), false, 'sem quando');
+  assert.equal(noPrazo({ unidades: 'NIT/A', quando: Date.now() }), false, 'não é lista');
+});
+
+test('a validade é meia hora', () => {
+  // O caminho normal é abrir o andamento a partir da tela do processo,
+  // segundos depois de a caixa ter sido lida.
+  assert.equal(VALIDADE_MS, 30 * 60 * 1000);
+});
+
+test('o id do processo sai da URL de qualquer frame', () => {
+  const frame = (href) => ({ location: { href } });
+
+  assert.equal(
+    idDoProcesso([
+      frame('https://leste.sei.rj.gov.br/sei/controlador.php?acao=x'),
+      frame('https://leste.sei.rj.gov.br/sei/controlador.php?acao=y&id_procedimento=9233'),
+    ]),
+    '9233',
+  );
+  assert.equal(idDoProcesso([frame('https://leste.sei.rj.gov.br/sei/controlador.php?acao=x')]), null);
+});
+
+test('frame com URL ilegível não derruba a busca do id', () => {
+  const explode = {
+    get location() {
+      throw new Error('outra origem');
+    },
+  };
+
+  assert.equal(
+    idDoProcesso([explode, { location: { href: 'https://a/sei/x?id_procedimento=7' } }]),
+    '7',
+  );
+});
+
+test('a captura das unidades abertas roda em toda tela, não só na do andamento', () => {
+  // É a fiação, e é o ponto inteiro do módulo: a caixa vive na tela do
+  // PROCESSO e some quando o SEI troca o frame pelo andamento. Se a chamada
+  // ficar dentro de pintar(), que só age quando há tabela de andamento, nunca
+  // se captura nada — e a lembrança fica sempre vazia.
+  const fonte = fs.readFileSync('src/content/features/trajetoria/index.js', 'utf8');
+  const setup = fonte.slice(fonte.indexOf('setup()'));
+  const chamada = setup.indexOf('unidadesAbertas()');
+  const dentroDePintar = setup.indexOf('const pintar =');
+
+  assert.notEqual(chamada, -1, 'a captura precisa ser chamada');
+  assert.ok(chamada < dentroDePintar, 'e antes de pintar(), fora dele');
+});
