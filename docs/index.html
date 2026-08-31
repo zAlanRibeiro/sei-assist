@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SEI Assist</title>
+<meta name="description" content="Manual da extensão SEI Assist: o que cada funcionalidade faz, onde aparece, atalhos, opções e o que a extensão nunca faz.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* ------------------------------------------------------------------ tokens
+   Paleta tirada das cores que a própria extensão usa para marcar evento:
+   verde assinatura, azul envio, roxo processo, âmbar documento. O papel é
+   cinza com viés azul, para conversar com o azul institucional sem competir.
+   ------------------------------------------------------------------------ */
+:root {
+  --papel: #eef1f5;
+  --superficie: #ffffff;
+  --superficie-2: #f6f8fa;
+  --tinta: #10161d;
+  --tinta-suave: #4b5766;
+  --tinta-fraca: #77828f;
+  --regua: #d9e0e8;
+  --regua-forte: #c2ccd7;
+
+  --assinado: #12751d;
+  --enviado: #12489e;
+  --processo: #5f23c4;
+  --documento: #9a4708;
+  --alerta-fundo: #fdf3d8;
+  --alerta-tinta: #7a5605;
+
+  --sombra: 0 1px 2px rgba(16, 22, 29, .06), 0 8px 24px rgba(16, 22, 29, .06);
+  --raio: 8px;
+  --coluna: 68ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --papel: #0d1218;
+    --superficie: #151c24;
+    --superficie-2: #1b242e;
+    --tinta: #e4eaf1;
+    --tinta-suave: #a3b0be;
+    --tinta-fraca: #7a8794;
+    --regua: #27323d;
+    --regua-forte: #37444f;
+
+    --assinado: #4fc463;
+    --enviado: #6ba6f5;
+    --processo: #b18cf5;
+    --documento: #e39a4c;
+    --alerta-fundo: #2e2712;
+    --alerta-tinta: #e8c766;
+
+    --sombra: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 30px rgba(0, 0, 0, .45);
+  }
+}
+
+:root[data-theme="dark"] {
+  --papel: #0d1218;
+  --superficie: #151c24;
+  --superficie-2: #1b242e;
+  --tinta: #e4eaf1;
+  --tinta-suave: #a3b0be;
+  --tinta-fraca: #7a8794;
+  --regua: #27323d;
+  --regua-forte: #37444f;
+
+  --assinado: #4fc463;
+  --enviado: #6ba6f5;
+  --processo: #b18cf5;
+  --documento: #e39a4c;
+  --alerta-fundo: #2e2712;
+  --alerta-tinta: #e8c766;
+
+  --sombra: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 30px rgba(0, 0, 0, .45);
+}
+
+/* ------------------------------------------------------------------- base */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--papel);
+  color: var(--tinta);
+  font: 400 16px/1.65 "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: Bitter, ui-serif, Georgia, serif;
+  font-weight: 700;
+  line-height: 1.18;
+  text-wrap: balance;
+  margin: 0;
+}
+
+h1 { font-size: clamp(2rem, 1.4rem + 2.4vw, 3rem); letter-spacing: -.015em; }
+h2 { font-size: 1.5rem; letter-spacing: -.01em; }
+h3 { font-size: 1.0625rem; font-weight: 600; }
+
+p, ul, ol { margin: 0; }
+ul, ol { padding-left: 1.15rem; }
+li + li { margin-top: .3rem; }
+
+a { color: var(--enviado); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--enviado);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+code, kbd, .nup, .sigla {
+  font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+code {
+  font-size: .875em;
+  background: var(--superficie-2);
+  border: 1px solid var(--regua);
+  border-radius: 4px;
+  padding: .08em .34em;
+}
+
+kbd {
+  font-size: .8125em;
+  font-weight: 500;
+  background: var(--superficie);
+  border: 1px solid var(--regua-forte);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: .12em .42em;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- estrutura */
+.pagina {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 4vw, 2.5rem);
+}
+
+.capa {
+  border-bottom: 1px solid var(--regua);
+  padding: clamp(2.5rem, 6vw, 4.5rem) 0 clamp(2rem, 4vw, 3rem);
+}
+
+.chapeu {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .75rem;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+  margin-bottom: 1.1rem;
+}
+
+.chapeu .versao {
+  border: 1px solid var(--regua-forte);
+  border-radius: 999px;
+  padding: .1rem .5rem;
+  color: var(--tinta-suave);
+}
+
+.capa p.linha-fina {
+  max-width: var(--coluna);
+  margin-top: 1rem;
+  font-size: 1.1875rem;
+  line-height: 1.55;
+  color: var(--tinta-suave);
+}
+
+.corpo {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: start;
+  padding: clamp(2rem, 4vw, 3rem) 0 5rem;
+}
+
+@media (max-width: 860px) {
+  .corpo { grid-template-columns: minmax(0, 1fr); }
+  .indice { position: static; border-right: 0; border-bottom: 1px solid var(--regua); padding-bottom: 1.25rem; }
+}
+
+.indice {
+  position: sticky;
+  top: 1.5rem;
+  font-size: .875rem;
+  line-height: 1.5;
+}
+
+.indice h2 {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .6875rem;
+  font-weight: 600;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+  margin-bottom: .7rem;
+}
+
+.indice ol { list-style: none; padding: 0; }
+.indice li + li { margin-top: .05rem; }
+
+.indice a {
+  display: block;
+  padding: .25rem .55rem;
+  margin-left: -.55rem;
+  border-radius: 5px;
+  color: var(--tinta-suave);
+  text-decoration: none;
+}
+
+.indice a:hover { background: var(--superficie); color: var(--tinta); }
+
+.conteudo { max-width: var(--coluna); display: flex; flex-direction: column; gap: 3rem; }
+
+section { scroll-margin-top: 1.5rem; }
+
+section > * + * { margin-top: .9rem; }
+
+.secao-titulo {
+  display: flex;
+  align-items: baseline;
+  gap: .7rem;
+  padding-bottom: .55rem;
+  border-bottom: 2px solid var(--tinta);
+}
+
+.secao-titulo .conta {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .8125rem;
+  font-weight: 500;
+  color: var(--tinta-fraca);
+}
+
+/* ------------------------------------------------------------------- peças */
+.aviso {
+  background: var(--alerta-fundo);
+  color: var(--alerta-tinta);
+  border-left: 3px solid currentColor;
+  border-radius: 0 var(--raio) var(--raio) 0;
+  padding: .85rem 1.05rem;
+  font-size: .9375rem;
+}
+
+.aviso strong { color: inherit; }
+
+.promessa {
+  background: var(--superficie);
+  border: 1px solid var(--regua);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 1.15rem 1.35rem;
+  margin-top: 1.6rem;
+  max-width: var(--coluna);
+}
+
+.promessa h2 { font-size: 1.0625rem; margin-bottom: .45rem; }
+.promessa p { font-size: .9375rem; color: var(--tinta-suave); }
+.promessa .verbos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-top: .8rem;
+}
+
+.verbo {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .75rem;
+  font-weight: 500;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--assinado);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: .12rem .55rem;
+}
+
+/* Demonstração: um pedaço do SEI remontado em HTML. */
+.demo {
+  background: var(--superficie-2);
+  border: 1px solid var(--regua);
+  border-radius: var(--raio);
+  padding: 1.1rem;
+  overflow-x: auto;
+}
+
+.demo::before {
+  content: "na tela do SEI";
+  display: block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .6875rem;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+  margin-bottom: .7rem;
+}
+
+.barra-sei {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  background: #12181f;
+  color: #f2f5f8;
+  border-radius: 6px;
+  padding: .5rem .75rem;
+  font-size: .8125rem;
+  white-space: nowrap;
+}
+
+.barra-sei .logo { font-family: Bitter, serif; font-weight: 700; font-size: 1.05rem; }
+.barra-sei .marca { color: #ffffff; font-weight: 600; }
+.barra-sei .unidade {
+  margin-left: auto;
+  font-family: "IBM Plex Mono", monospace;
+  border: 1px solid #3a4652;
+  border-radius: 4px;
+  padding: .12rem .45rem;
+}
+
+.faixa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .6rem;
+  background: var(--superficie);
+  color: var(--tinta);
+  border-left: 3px solid var(--enviado);
+  border-radius: var(--raio);
+  padding: .55rem .75rem;
+  font-size: .875rem;
+}
+
+.faixa .rota { font-weight: 600; letter-spacing: .02em; }
+
+.pilula {
+  background: var(--enviado);
+  color: var(--superficie);
+  border-radius: 999px;
+  padding: .1rem .5rem;
+  font-size: .6875rem;
+  font-weight: 600;
+}
+
+.faixa .abertas { flex-basis: 100%; color: var(--tinta-suave); font-size: .8125rem; }
+
+.nup, .sigla { font-size: .875em; }
+
+.botao-c {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  margin-left: .3rem;
+  border: 1px solid var(--regua-forte);
+  border-radius: 4px;
+  background: var(--superficie);
+  color: var(--tinta-suave);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .6875rem;
+  font-weight: 600;
+}
+
+.lista-unidades {
+  background: var(--superficie);
+  border: 1px solid var(--regua);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: .3rem;
+  max-width: 300px;
+  margin-top: .5rem;
+  font-size: .8125rem;
+}
+
+.lista-unidades div { padding: .35rem .5rem; border-radius: 5px; }
+.lista-unidades .atual { background: var(--superficie-2); font-weight: 600; }
+.lista-unidades .desc { display: block; color: var(--tinta-fraca); font-size: .6875rem; font-weight: 400; }
+.lista-unidades .ir { color: var(--enviado); }
+
+.registro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+  background: var(--superficie);
+  border: 1px solid var(--regua);
+  border-radius: 6px;
+  padding: .5rem .65rem;
+  font-size: .8125rem;
+}
+
+.registro + .registro { margin-top: .4rem; }
+.registro .quando { color: var(--tinta-fraca); font-family: "IBM Plex Mono", monospace; font-size: .75rem; }
+
+.etiqueta {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .6875rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  border-radius: 4px;
+  padding: .08rem .4rem;
+  color: var(--superficie);
+}
+
+.et-assinado { background: var(--assinado); }
+.et-enviado { background: var(--enviado); }
+.et-processo { background: var(--processo); }
+.et-documento { background: var(--documento); }
+
+.et-origem {
+  background: transparent;
+  color: var(--tinta-suave);
+  border: 1px solid var(--regua-forte);
+  font-weight: 500;
+}
+
+.tarja {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  background: var(--tinta);
+  color: var(--papel);
+  border-radius: 6px;
+  padding: .5rem .8rem;
+  font-size: .8125rem;
+}
+
+.tarja .contador {
+  background: #c62828;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0 .4rem;
+  font-size: .6875rem;
+  font-weight: 600;
+}
+
+.botao-editor {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  background: var(--superficie);
+  border: 1px solid var(--regua-forte);
+  border-radius: 5px;
+  padding: .3rem .6rem;
+  font-size: .8125rem;
+  color: var(--tinta);
+}
+
+/* --------------------------------------------------------------- tabelas */
+.rolagem { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .875rem;
+}
+
+th, td {
+  text-align: left;
+  padding: .55rem .7rem;
+  border-bottom: 1px solid var(--regua);
+  vertical-align: top;
+}
+
+th {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .6875rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+  border-bottom: 1px solid var(--regua-forte);
+  white-space: nowrap;
+}
+
+tbody tr:last-child td { border-bottom: 0; }
+td .nome-opcao { font-family: "IBM Plex Mono", monospace; font-size: .8125rem; }
+
+details {
+  background: var(--superficie);
+  border: 1px solid var(--regua);
+  border-radius: var(--raio);
+  padding: .8rem 1rem;
+}
+
+details + details { margin-top: .5rem; }
+summary { cursor: pointer; font-weight: 600; font-size: .9375rem; }
+details > *:not(summary) { margin-top: .6rem; font-size: .9375rem; color: var(--tinta-suave); }
+
+.rodape {
+  border-top: 1px solid var(--regua);
+  padding: 1.6rem 0 3rem;
+  font-size: .8125rem;
+  color: var(--tinta-fraca);
+}
+
+/* O flex mora na coluna, nao no <footer>: senao o container flex teria um
+   filho so e o gap nao valeria para nada. */
+.rodape .pagina {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="capa">
+  <div class="pagina">
+    <div class="chapeu">
+      <span>Extensão para Chrome e Edge</span>
+      <span class="versao">v1.0.0</span>
+    </div>
+    <h1>SEI Assist</h1>
+    <p class="linha-fina">
+      Guarda o que você assinou e enviou, avisa quando chega bloco novo, recupera o
+      rascunho quando a sessão cai e resume por onde o processo andou. Funciona em
+      qualquer instalação do SEI — cada órgão hospeda no próprio domínio, e a
+      extensão reconhece o padrão, não um endereço fixo.
+    </p>
+
+    <div class="promessa">
+      <h2>O que ela nunca faz</h2>
+      <p>
+        Esta é a restrição central do projeto, não um detalhe. A extensão lê telas,
+        preenche campos e organiza informação. Nenhuma ação que produza efeito
+        jurídico acontece sem você clicar.
+      </p>
+      <div class="verbos">
+        <span class="verbo">não assina</span>
+        <span class="verbo">não envia</span>
+        <span class="verbo">não tramita</span>
+        <span class="verbo">não conclui</span>
+        <span class="verbo">não exclui</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="pagina corpo">
+  <nav class="indice" aria-label="Índice">
+    <h2>Neste manual</h2>
+    <ol>
+      <li><a href="#instalar">Instalar</a></li>
+      <li><a href="#historico">Histórico</a></li>
+      <li><a href="#bloco">Alerta de bloco</a></li>
+      <li><a href="#trajetoria">Trajetória</a></li>
+      <li><a href="#unidade">Trocar unidade</a></li>
+      <li><a href="#copiar">Copiar o número</a></li>
+      <li><a href="#editor">Editor</a></li>
+      <li><a href="#marca">Marca de ativa</a></li>
+      <li><a href="#atalhos">Atalhos</a></li>
+      <li><a href="#opcoes">Opções</a></li>
+      <li><a href="#privacidade">Privacidade</a></li>
+      <li><a href="#problemas">Quando algo falha</a></li>
+    </ol>
+  </nav>
+
+  <main class="conteudo">
+
+    <section id="instalar">
+      <div class="secao-titulo"><h2>Instalar</h2></div>
+      <p>
+        Enquanto a extensão não está na Chrome Web Store, a instalação é pela pasta
+        do projeto:
+      </p>
+      <ol>
+        <li>Baixe ou clone o repositório.</li>
+        <li>Abra <code>chrome://extensions</code> e ligue o <strong>Modo do desenvolvedor</strong>.</li>
+        <li>Clique em <strong>Carregar sem compactação</strong> e escolha a pasta do projeto.</li>
+        <li>Abra o SEI. Se aparecer <strong>Assist</strong> ao lado do logo, está funcionando.</li>
+      </ol>
+      <p class="aviso">
+        <strong>Depois de atualizar o código, recarregue a extensão</strong> em
+        <code>chrome://extensions</code>. Baixar arquivo novo não basta: enquanto a
+        extensão não for recarregada, o navegador continua rodando a versão anterior.
+      </p>
+    </section>
+
+    <section id="historico">
+      <div class="secao-titulo"><h2>Histórico</h2><span class="conta">painel</span></div>
+      <p>
+        O SEI não guarda em lugar nenhum uma lista do que <em>você</em> assinou e
+        enviou. A extensão acumula essa lista conforme você trabalha, e ela fica
+        neste navegador.
+      </p>
+
+      <div class="demo">
+        <div class="registro">
+          <span class="etiqueta et-assinado">ASSINADO</span>
+          <span class="nup">00098329</span>
+          <span>Despacho</span>
+          <span class="etiqueta et-origem">Bloco</span>
+          <span class="quando">27/08 15:34</span>
+        </div>
+        <div class="registro">
+          <span class="etiqueta et-enviado">ENVIADO</span>
+          <span class="nup">NIT-050131/000463/2026</span>
+          <span class="sigla">DIVEST → DEPGM</span>
+          <span class="quando">24/08 12:24</span>
+        </div>
+        <div class="registro">
+          <span class="etiqueta et-processo">PROCESSO</span>
+          <span class="nup">NIT-050131/004049/2026</span>
+          <span class="quando">28/08 15:50</span>
+        </div>
+      </div>
+
+      <p>
+        Abra pelo link <strong>Histórico</strong>, na mesma linha do
+        <em>Visualização resumida</em>, no Controle de Processos — ou por
+        <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>.
+      </p>
+      <ul>
+        <li>Busca por número, tipo, unidade ou assinante.</li>
+        <li>Filtro por período: 7 dias, 30 dias ou tudo.</li>
+        <li>A etiqueta de origem distingue o que foi assinado <strong>pelo bloco</strong> do que foi assinado <strong>pela árvore do processo</strong>.</li>
+        <li>Exportação para CSV, com separador <code>;</code> e BOM — abre direto no Excel em português.</li>
+      </ul>
+      <p>
+        Abrir um processo também recolhe do andamento o que já aconteceu antes de a
+        extensão existir. Nada é enviado a lugar nenhum.
+      </p>
+    </section>
+
+    <section id="bloco">
+      <div class="secao-titulo"><h2>Alerta de bloco</h2><span class="conta">assinatura</span></div>
+      <p>
+        Avisa quando entra bloco novo na assinatura da sua unidade, ou quando um
+        bloco muda de estado. Consulta a página do bloco de tempos em tempos — só
+        leitura, nunca assina nem devolve nada.
+      </p>
+
+      <div class="demo">
+        <div class="tarja">
+          <span class="contador">2</span>
+          <span>Assinatura: 2 blocos novos</span>
+        </div>
+      </div>
+
+      <p>O aviso chega por três caminhos, todos desligáveis:</p>
+      <ul>
+        <li>contador no ícone da extensão, na barra do navegador;</li>
+        <li>tarja dentro da página do SEI;</li>
+        <li>marcador no menu <strong>Blocos → Assinatura</strong>.</li>
+      </ul>
+      <p>
+        Para verificar agora, sem esperar o intervalo:
+        <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>.
+      </p>
+      <p class="aviso">
+        Na primeira consulta a extensão só registra o ponto de partida. Instalar com
+        quinze blocos parados não pode virar quinze avisos de “chegou agora”.
+      </p>
+    </section>
+
+    <section id="trajetoria">
+      <div class="secao-titulo"><h2>Trajetória</h2><span class="conta">consultar andamento</span></div>
+      <p>
+        A tabela de andamento responde bem “o que aconteceu” e mal “por onde o
+        processo andou”. A faixa responde a segunda pergunta em uma linha.
+      </p>
+
+      <div class="demo">
+        <div class="faixa">
+          <span class="rota sigla">DIVIT → DEPGM + DIVEST + DIVIT</span>
+          <span class="pilula">em 3 unidades</span>
+          <span class="abertas">Aberto em DEPGM, DIVEST e DIVIT</span>
+        </div>
+      </div>
+
+      <p>Como ler:</p>
+      <ul>
+        <li><strong>→</strong> é “depois”. <strong>+</strong> é “ao mesmo tempo” — no SEI, enviar já abre o processo no destino, e um envio pode ir para várias unidades de uma vez.</li>
+        <li>A sigla aparece encurtada; a completa está no <em>title</em>, ao passar o mouse.</li>
+        <li>A segunda linha vem da caixa <strong>Processo aberto nas unidades</strong> do próprio SEI, não de dedução nossa.</li>
+      </ul>
+      <p class="aviso">
+        Aquela caixa fica na tela do <strong>processo</strong> e some quando o SEI a
+        substitui pelo andamento. Por isso a extensão a memoriza ao passar pela tela
+        do processo, por meia hora. Se você abrir o andamento por link direto, sem
+        passar pelo processo antes, a linha “Aberto em…” pode não aparecer.
+      </p>
+    </section>
+
+    <section id="unidade">
+      <div class="secao-titulo"><h2>Trocar unidade</h2><span class="conta">barra do topo</span></div>
+      <p>
+        Clicar na unidade abre a lista das suas unidades ali mesmo, sem passar pela
+        tela de troca. O <strong>↗</strong> ao lado continua levando para a tela de
+        sempre.
+      </p>
+
+      <div class="demo">
+        <div class="barra-sei">
+          <span class="logo">sei!</span>
+          <span>Producao</span>
+          <span class="marca">Assist</span>
+          <span class="unidade">NIT/NITTRANS/DIVEST ↗</span>
+        </div>
+        <div class="lista-unidades">
+          <div class="atual">NIT/NITTRANS/DIVEST<span class="desc">Divisão de Estatísticas</span></div>
+          <div>NIT/NITTRANS/DEPGM<span class="desc">Departamento Geral de Mobilidade</span></div>
+          <div class="ir">Abrir a tela de troca ↗</div>
+        </div>
+      </div>
+
+      <p>
+        A lista vem da tela de troca do SEI, e é lida <strong>na primeira vez que
+        você passa por ela</strong>. Antes disso, o clique se comporta como sempre.
+        Não há consulta em segundo plano: a extensão usa o que já apareceu na sua
+        tela.
+      </p>
+      <p>
+        Escolher uma unidade leva à tela do SEI com a opção já marcada. Quem troca a
+        unidade é o SEI — a extensão só clica no mesmo lugar que você clicaria.
+      </p>
+    </section>
+
+    <section id="copiar">
+      <div class="secao-titulo"><h2>Copiar o número</h2></div>
+      <p>
+        Um <strong>C</strong> ao lado de cada número de processo na tela. Clicou,
+        copiou — sem selecionar com o mouse, sem pegar espaço a mais, sem perder o
+        número na quebra de linha.
+      </p>
+
+      <div class="demo">
+        <span class="nup">NIT-050131/000463/2026</span><span class="botao-c">C</span>
+      </div>
+
+      <p>
+        O alvo é achado pelo <strong>formato</strong> do número, não por uma tela
+        específica: funciona na árvore, na lista do Controle de Processos, no
+        cabeçalho e onde mais o número aparecer.
+      </p>
+    </section>
+
+    <section id="editor">
+      <div class="secao-titulo"><h2>Editor</h2><span class="conta">rascunho e data</span></div>
+
+      <h3>Rascunho</h3>
+      <p>
+        A sessão do SEI expira em silêncio. Você escreve uma Comunicação Interna
+        inteira, clica em Salvar, e o SEI devolve a tela de login com o texto
+        perdido. Não há desfazer para isso.
+      </p>
+      <p>
+        A extensão guarda o que você está escrevendo e oferece de volta ao reabrir o
+        documento. O rascunho fica <strong>só neste navegador</strong>, expira em 3
+        dias, some assim que o documento é salvo, e no máximo 20 são mantidos.
+      </p>
+      <p class="aviso">
+        <strong>Documento restrito ou sigiloso não vira rascunho.</strong> O
+        armazenamento local não é cifrado, e o conteúdo desses documentos é
+        justamente o que não deveria ficar em disco. A extensão descobre o nível de
+        acesso na árvore do processo e avisa na tela quando recusa.
+      </p>
+
+      <h3>Data por extenso</h3>
+      <div class="demo">
+        <span class="botao-editor">Inserir data</span>
+      </div>
+      <p>
+        Um botão na barra do editor escreve o fecho na posição do cursor. Se você
+        preencher a cidade nas opções, sai <em>Niterói, 31 de agosto de 2026</em>;
+        sem cidade, sai só a data — que está sempre certa.
+      </p>
+    </section>
+
+    <section id="marca">
+      <div class="secao-titulo"><h2>Marca de ativa</h2></div>
+      <p>
+        A palavra <strong>Assist</strong> ao lado do logo do SEI, para você saber num
+        relance que a extensão está ligada nesta aba. Não lê nem guarda nada — e é o
+        jeito mais rápido de descobrir que esqueceu de recarregar depois de
+        atualizar.
+      </p>
+    </section>
+
+    <section id="atalhos">
+      <div class="secao-titulo"><h2>Atalhos</h2></div>
+      <div class="rolagem">
+        <table>
+          <thead>
+            <tr><th>Atalho</th><th>O que faz</th><th>Onde</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd></td>
+              <td>Abre e fecha o painel de histórico</td>
+              <td>Qualquer tela do SEI</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></td>
+              <td>Verifica o bloco de assinatura agora</td>
+              <td>Qualquer tela do SEI</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd></td>
+              <td>Copia a estrutura da tela, sem conteúdo de processo</td>
+              <td>Ferramenta de desenvolvimento</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Todos os três podem ser trocados nas opções.</p>
+    </section>
+
+    <section id="opcoes">
+      <div class="secao-titulo"><h2>Opções</h2></div>
+      <p>
+        Clique com o botão direito no ícone da extensão e escolha
+        <strong>Opções</strong>. Toda funcionalidade pode ser desligada por inteiro.
+      </p>
+      <div class="rolagem">
+        <table>
+          <thead>
+            <tr><th>Funcionalidade</th><th>Opção</th><th>Padrão</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="3">Histórico</td>
+              <td>Período inicial do filtro</td><td>30 dias</td>
+            </tr>
+            <tr><td>Coletar ao abrir um processo</td><td>ligado</td></tr>
+            <tr><td>Seu nome e login no SEI <span class="nome-opcao">(só se a detecção falhar)</span></td><td>vazio</td></tr>
+            <tr>
+              <td rowspan="3">Alerta de bloco</td>
+              <td>Consultar a cada</td><td>10 minutos</td>
+            </tr>
+            <tr><td>Mostrar tarja na página do SEI</td><td>ligado</td></tr>
+            <tr><td>Marcar o menu Blocos / Assinatura</td><td>ligado</td></tr>
+            <tr>
+              <td rowspan="4">Editor</td>
+              <td>Guardar rascunho do texto</td><td>ligado</td>
+            </tr>
+            <tr><td>Só guardar rascunho quando o documento for público</td><td>desligado</td></tr>
+            <tr><td>Cidade no fecho do documento</td><td>vazio</td></tr>
+            <tr><td>Formato da data</td><td>extenso</td></tr>
+            <tr>
+              <td>Trocar unidade</td>
+              <td>Abrir a lista mesmo com uma unidade só</td><td>ligado</td>
+            </tr>
+            <tr>
+              <td>Marca de ativa</td>
+              <td>Texto da marca</td><td><span class="nome-opcao">Assist</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="aviso">
+        <strong>Só guardar rascunho quando o documento for público</strong> é a opção
+        cautelosa: com ela ligada, um documento cujo nível de acesso a extensão não
+        conseguir identificar também não vira rascunho.
+      </p>
+    </section>
+
+    <section id="privacidade">
+      <div class="secao-titulo"><h2>Privacidade</h2></div>
+      <p>
+        Tudo fica no armazenamento local deste navegador. A extensão não tem
+        servidor, não usa a conta do navegador para sincronizar e não envia nada para
+        lugar nenhum.
+      </p>
+      <div class="rolagem">
+        <table>
+          <thead>
+            <tr><th>O que</th><th>Para quê</th><th>Por quanto tempo</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Histórico de assinaturas e envios</td><td>O painel</td><td>Até 5.000 registros, ou até você limpar</td></tr>
+            <tr><td>Rascunho do editor <span class="nome-opcao">(nunca de documento restrito)</span></td><td>Recuperar texto se a sessão expirar</td><td>3 dias, ou até salvar o documento</td></tr>
+            <tr><td>Estado do bloco de assinatura</td><td>Saber o que é novidade</td><td>Até a próxima consulta</td></tr>
+            <tr><td>Suas unidades e onde o processo está aberto</td><td>A lista da barra e a faixa do andamento</td><td>Meia hora, para as unidades abertas</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>O que nunca é lido nem guardado:</strong> sua senha. O campo aparece nos seletores da extensão apenas documentado como algo a ignorar, e há teste automatizado que reprova se alguém tentar lê-lo.</p>
+      <p>
+        <strong>Uma única requisição existe</strong> em todo o projeto: a consulta ao
+        bloco de assinatura. É <code>GET</code>, na mesma origem do SEI que você já
+        está usando, sem corpo, e apenas para ler a lista.
+      </p>
+    </section>
+
+    <section id="problemas">
+      <div class="secao-titulo"><h2>Quando algo falha</h2></div>
+
+      <details>
+        <summary>Nada apareceu depois de atualizar</summary>
+        <p>
+          Recarregue a extensão em <code>chrome://extensions</code> e depois recarregue
+          a aba do SEI. Baixar arquivo novo não atualiza o navegador sozinho. Se a
+          palavra <strong>Assist</strong> não aparecer ao lado do logo, é isso.
+        </p>
+      </details>
+
+      <details>
+        <summary>A faixa do andamento não aparece</summary>
+        <p>
+          Ela só aparece em processo que já tramitou — sem envio nem recebimento, não
+          há rota para mostrar. Se o processo tramitou e mesmo assim não aparece, ligue
+          o modo de depuração abaixo: o console dirá em que ponto a leitura parou.
+        </p>
+      </details>
+
+      <details>
+        <summary>A lista de unidades não abre</summary>
+        <p>
+          Ela precisa que você passe uma vez pela tela de troca de unidade — é de lá
+          que os nomes saem. Ao passar, aparece um aviso dizendo quantas unidades foram
+          guardadas. Com uma unidade só, a lista mostra a sua unidade e o caminho para
+          a tela do SEI.
+        </p>
+      </details>
+
+      <details>
+        <summary>Modo de depuração</summary>
+        <p>
+          No console da página do SEI (<kbd>F12</kbd>), rode
+          <code>localStorage.setItem('seix:debug', '1')</code> e recarregue. A extensão
+          passa a relatar o que leu, o que não achou e por quê. Para desligar, troque
+          <code>'1'</code> por <code>'0'</code>.
+        </p>
+      </details>
+
+      <details>
+        <summary>Uso o SEI++ junto</summary>
+        <p>
+          Funciona. As duas extensões convivem: os nomes que a SEI Assist injeta são
+          todos prefixados e nada é removido da página do SEI. Há sobreposição em duas
+          coisas — a cópia do número do processo e a contagem de blocos —, então você
+          pode ver o mesmo dado em dois lugares.
+        </p>
+      </details>
+    </section>
+
+  </main>
+</div>
+
+<footer class="rodape">
+  <div class="pagina">
+    <span>SEI Assist · v1.0.0 · licença MIT</span>
+    <span>Validado em SEI 5.0.4</span>
+    <span>Requer Chrome ou Edge 102+</span>
+  </div>
+</footer>
+
+</body>
+</html>
