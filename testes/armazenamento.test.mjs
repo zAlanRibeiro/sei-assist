@@ -999,3 +999,69 @@ test('não há mais marcação manual de assinatura', () => {
 
   assert.equal(/aoResolver|seix-hist__resolvido/.test(painel), false);
 });
+
+/* ------------------------------------------- o processo que ficou faltando */
+
+test('a árvore preenche o processo que faltou', async () => {
+  // "processo desconhecido" no painel: a tela "Gerar Documento" não mostra o
+  // NUP, e se a busca pelos frames falhar o registro nasce sem ele. A árvore
+  // sabe as duas coisas ao mesmo tempo — qual é o processo e quais documentos
+  // estão nele.
+  await zerar();
+  await hist.registrar({ ...criado(1), processo: null });
+
+  const completados = await hist.completarProcessos(['1'], 'NIT-050131/004049/2026');
+
+  assert.equal(completados, 1);
+  assert.equal((await meus())[0].processo, 'NIT-050131/004049/2026');
+});
+
+test('não sobrescreve o processo de quem já tem', async () => {
+  // O registro pode ter vindo de uma fonte melhor. A árvore completa o que
+  // falta, não corrige o que existe.
+  await zerar();
+  await hist.registrar({ ...criado(1), processo: 'NIT-050131/000463/2026' });
+
+  assert.equal(await hist.completarProcessos(['1'], 'NIT-050131/004049/2026'), 0);
+  assert.equal((await meus())[0].processo, 'NIT-050131/000463/2026');
+});
+
+test('só completa os documentos que estão NESTA árvore', async () => {
+  // Abrir o processo A não pode carimbar o número de A num documento de B.
+  await zerar();
+  await hist.registrar({ ...criado(1), processo: null });
+  await hist.registrar({ ...criado(2), processo: null });
+
+  await hist.completarProcessos(['1'], 'NIT-050131/004049/2026');
+
+  const porId = Object.fromEntries((await meus()).map((r) => [r.idInterno, r.processo]));
+  assert.equal(porId['1'], 'NIT-050131/004049/2026');
+  assert.equal(porId['2'] ?? null, null, 'o documento de outro processo não é tocado');
+});
+
+test('sem processo ou sem ids não mexe em nada', async () => {
+  await zerar();
+  await hist.registrar({ ...criado(1), processo: null });
+
+  assert.equal(await hist.completarProcessos(['1'], ''), 0);
+  assert.equal(await hist.completarProcessos([], 'NIT-1'), 0);
+  assert.equal(await hist.completarProcessos(null, 'NIT-1'), 0);
+  assert.equal((await meus())[0].processo ?? null, null);
+});
+
+test('a varredura da árvore é quem completa o processo', () => {
+  // Fiação: a árvore é o único lugar que sabe processo e documentos juntos.
+  const fonte = fs.readFileSync('src/content/features/historico/captura.js', 'utf8');
+
+  assert.match(fonte, /await completarProcessos\(Object\.keys\(mapa\), acharNup\(/);
+});
+
+test('a busca do processo olha os frames irmãos', () => {
+  // O NUP não está na tela "Gerar Documento" nem no documento de cima:
+  // textContent não atravessa iframe, e o topo só tem a barra e a moldura.
+  // Quem tem o NUP é ifrArvore, que é IRMÃO — não ancestral.
+  const fonte = fs.readFileSync('src/content/features/historico/captura.js', 'utf8');
+  const trecho = fonte.slice(fonte.indexOf('function processoDaOrigem'));
+
+  assert.match(trecho.slice(0, 900), /documentosAcessiveis\(\)/);
+});

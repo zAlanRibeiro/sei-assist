@@ -342,6 +342,43 @@ export async function marcarAssinadosVistos(idsInternos) {
 }
 
 /**
+ * Preenche o processo dos registros que ficaram sem ele.
+ *
+ * Mesmo remedio de `completarNumeros`, para o outro campo que pode faltar. A
+ * captura da criacao acontece numa tela que nao mostra o NUP, e se a busca
+ * pelos frames falhar o registro nasce com "processo desconhecido". A arvore
+ * sabe as duas coisas ao mesmo tempo - o processo aberto e os documentos que
+ * estao nele -, entao passar por ela conserta o que ficou faltando.
+ *
+ * Só preenche o que esta vazio: registro que ja tem processo nao e tocado.
+ *
+ * @param {string[]} idsInternos documentos que estao NESTA arvore
+ * @param {string} processo NUP do processo aberto
+ */
+export async function completarProcessos(idsInternos, processo) {
+  const ids = [...new Set((idsInternos || []).filter(Boolean).map(String))];
+  if (!ids.length || !processo) return 0;
+
+  const dados = await ler();
+  let completados = 0;
+
+  for (const registro of Object.values(dados.registros)) {
+    if (registro.processo) continue;
+    const interno = idInternoDe(registro);
+    if (!interno || !ids.includes(interno)) continue;
+
+    registro.processo = processo;
+    completados += 1;
+  }
+
+  if (completados) {
+    await escrever(dados);
+    log.debug(`${completados} registro(s) ganharam o numero do processo`);
+  }
+  return completados;
+}
+
+/**
  * O mesmo que `marcarAssinadosVistos`, mas pelo NUMERO visivel.
  *
  * A tela de documentos do bloco nao expoe o id interno em lugar nenhum - o
