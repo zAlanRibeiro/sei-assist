@@ -157,12 +157,26 @@
   color: var(--seix-cor-texto, #1c1c1c);
 }
 
+/* A cor vai no LABEL e no SPAN de dentro.
+ *
+ * Terceira vez que este defeito aparece por aqui: o texto mora num filho, a
+ * cor estava so no pai, e heranca nao vale dentro do HTML do SEI - o tema
+ * deles tem regra para span, e regra ganha de heranca. Elemento que mostra
+ * texto declara a propria cor, sempre, mesmo quando o pai ja declarou.
+ *
+ * E a cor e a cheia, nao a suave: aqui se decide desligar um aviso sobre
+ * apagar dado. Isso nao e legenda. O que separa esta linha do texto principal
+ * e o tamanho, nao o desbotamento. */
+.seix-dialogo__lembrar,
+.seix-dialogo__lembrar span {
+  color: var(--seix-cor-texto, #1c1c1c);
+}
+
 .seix-dialogo__lembrar {
   display: flex;
   align-items: center;
   gap: 7px;
   margin: -8px 0 16px;
-  color: var(--seix-cor-texto-suave, #475467);
   font-size: 13px;
   cursor: pointer;
 }

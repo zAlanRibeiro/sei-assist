@@ -345,3 +345,25 @@ test('página inteira transparente cai no padrão', () => {
   assert.equal(escolhida.fundo, null);
   assert.equal(escolhida.texto, null, 'texto sem fundo conhecido não decide nada');
 });
+
+test('todo pedaço do diálogo declara a própria cor', () => {
+  // Três vezes o mesmo defeito apareceu no diálogo: o texto num filho, a cor
+  // só no pai, e a regra do SEI para <p>/<span> ganhando da herança. Herança
+  // não vale dentro do HTML deles, então elemento que mostra texto declara a
+  // própria cor — mesmo quando o pai já declarou.
+  for (const pedaco of ['__titulo', '__texto', '__lembrar']) {
+    const i = css.indexOf(`.seix-dialogo${pedaco}`);
+    assert.notEqual(i, -1, `.seix-dialogo${pedaco} sumiu do CSS`);
+    const bloco = css.slice(i, css.indexOf('}', i));
+    assert.match(bloco, /color:/, `.seix-dialogo${pedaco} não declara cor`);
+  }
+
+  // E o filho que carrega o texto também. Sabotei tirando a cor do span e o
+  // teste acima PASSOU, porque o label continuava declarando — que é
+  // exatamente a situação em que o texto sai apagado.
+  assert.match(
+    css,
+    /.seix-dialogo__lembrar span[^{]*{[^}]*color:/,
+    'o span de dentro do label precisa da própria cor',
+  );
+});
