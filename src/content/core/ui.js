@@ -52,13 +52,25 @@ export function ativarPonteDeToasts() {
   });
 }
 
-/** Dialogo de confirmacao. Resolve para true/false. */
+/**
+ * Dialogo de confirmacao. Resolve para true/false.
+ *
+ * `lembrar` acrescenta uma caixa "nao perguntar de novo". Quando ela existe,
+ * `aoLembrar(marcada)` e chamado NA CONFIRMACAO, nunca no cancelamento:
+ * marcar a caixa e desistir nao pode desligar um aviso que a pessoa acabou de
+ * decidir nao seguir.
+ *
+ * O retorno continua sendo booleano de proposito - havia chamadores antes
+ * desta opcao, e trocar a forma do retorno os quebraria em silencio.
+ */
 export function confirmar(opcoes) {
   const {
     titulo,
     texto,
     confirmarTexto = 'Confirmar',
     cancelarTexto = 'Cancelar',
+    lembrar = null,
+    aoLembrar = null,
   } = opcoes;
 
   return new Promise((resolve) => {
@@ -71,9 +83,19 @@ export function confirmar(opcoes) {
       if (ev.key === 'Escape') fechar(false);
     };
 
+    const marcador = lembrar
+      ? el('input', { type: 'checkbox', id: `${NS}-dialogo-lembrar`, class: `${NS}-dialogo__caixa` })
+      : null;
+
     const caixa = el('div', { class: `${NS}-dialogo`, role: 'dialog', 'aria-modal': 'true' }, [
       el('h2', { class: `${NS}-dialogo__titulo`, text: titulo }),
       el('p', { class: `${NS}-dialogo__texto`, text: texto }),
+      marcador
+        ? el('label', { class: `${NS}-dialogo__lembrar`, for: `${NS}-dialogo-lembrar` }, [
+            marcador,
+            el('span', { text: lembrar }),
+          ])
+        : null,
       el('div', { class: `${NS}-dialogo__acoes` }, [
         el('button', {
           class: `${NS}-btn ${NS}-btn--secundario`,
@@ -83,7 +105,10 @@ export function confirmar(opcoes) {
         el('button', {
           class: `${NS}-btn ${NS}-btn--primario`,
           text: confirmarTexto,
-          onclick: () => fechar(true),
+          onclick: () => {
+            if (marcador && aoLembrar) aoLembrar(Boolean(marcador.checked));
+            fechar(true);
+          },
         }),
       ]),
     ]);

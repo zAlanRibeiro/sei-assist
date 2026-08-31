@@ -157,6 +157,24 @@
   color: var(--seix-cor-texto, #1c1c1c);
 }
 
+.seix-dialogo__lembrar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: -8px 0 16px;
+  color: var(--seix-cor-texto-suave, #475467);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.seix-dialogo__caixa {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--seix-cor-primaria, #1351b4);
+  cursor: pointer;
+}
+
 .seix-dialogo__acoes {
   display: flex;
   justify-content: flex-end;
