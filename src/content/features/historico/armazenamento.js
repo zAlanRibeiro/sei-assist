@@ -258,6 +258,36 @@ export async function favoritar(id, valor = true) {
   return Boolean(valor);
 }
 
+/**
+ * Apaga um conjunto de registros, poupando os favoritos.
+ *
+ * Existe porque "limpar" passou a significar "limpar o que está nesta lista",
+ * e não "limpar tudo": quem está vendo só os processos criados espera que o
+ * botão leve os processos criados, não a assinatura de ontem que nem está na
+ * tela.
+ *
+ * @returns {{apagados: number, poupados: number}}
+ */
+export async function removerVarios(ids, { inclusiveFavoritos = false } = {}) {
+  const dados = await ler();
+  let apagados = 0;
+  let poupados = 0;
+
+  for (const id of ids || []) {
+    const registro = dados.registros[id];
+    if (!registro) continue;
+    if (registro.favorito && !inclusiveFavoritos) {
+      poupados += 1;
+      continue;
+    }
+    delete dados.registros[id];
+    apagados += 1;
+  }
+
+  if (apagados) await escrever(dados);
+  return { apagados, poupados };
+}
+
 /** Quantos registros a limpeza levaria e quantos ficariam. */
 export function separarFavoritos(registros) {
   const lista = Object.entries(registros || {});

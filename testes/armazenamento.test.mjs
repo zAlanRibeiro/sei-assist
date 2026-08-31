@@ -726,3 +726,62 @@ test('nem um favorito:false explícito desmarca a estrela', async () => {
   const [registro] = await meus();
   assert.equal(registro.favorito, true);
 });
+
+/* --------------------------------------------- limpar só o que está na lista */
+
+test('removerVarios apaga só os ids pedidos', async () => {
+  // "Limpar" passou a significar "limpar o que está NESTA lista": quem está na
+  // aba de processos criados espera que o botão leve os processos criados, não
+  // a assinatura de ontem que nem está na tela.
+  await zerar();
+  for (const id of ['a', 'b', 'c']) {
+    await hist.registrar({ id, documento: id, quando: quandoAgora(), assinante: DONO });
+  }
+
+  const { apagados } = await hist.removerVarios(['a', 'c']);
+
+  assert.equal(apagados, 2);
+  assert.deepEqual((await meus()).map((r) => r.id), ['b']);
+});
+
+test('removerVarios poupa os favoritos e diz quantos', async () => {
+  await zerar();
+  await hist.registrar({ id: 'a', documento: '1', quando: quandoAgora(), assinante: DONO });
+  await hist.registrar({ id: 'b', documento: '2', quando: quandoAgora(), assinante: DONO });
+  await hist.favoritar('b');
+
+  const { apagados, poupados } = await hist.removerVarios(['a', 'b']);
+
+  assert.equal(apagados, 1);
+  assert.equal(poupados, 1);
+  assert.deepEqual((await meus()).map((r) => r.id), ['b']);
+});
+
+test('removerVarios leva os favoritos quando se pede', async () => {
+  await zerar();
+  await hist.registrar({ id: 'b', documento: '2', quando: quandoAgora(), assinante: DONO });
+  await hist.favoritar('b');
+
+  const { apagados } = await hist.removerVarios(['b'], { inclusiveFavoritos: true });
+
+  assert.equal(apagados, 1);
+  assert.equal((await meus()).length, 0);
+});
+
+test('removerVarios ignora id que não existe', async () => {
+  await zerar();
+  await hist.registrar({ id: 'a', documento: '1', quando: quandoAgora(), assinante: DONO });
+
+  const { apagados } = await hist.removerVarios(['a', 'fantasma', null]);
+
+  assert.equal(apagados, 1);
+});
+
+test('removerVarios com lista vazia não mexe em nada', async () => {
+  await zerar();
+  await hist.registrar({ id: 'a', documento: '1', quando: quandoAgora(), assinante: DONO });
+
+  assert.deepEqual(await hist.removerVarios([]), { apagados: 0, poupados: 0 });
+  assert.deepEqual(await hist.removerVarios(null), { apagados: 0, poupados: 0 });
+  assert.equal((await meus()).length, 1);
+});

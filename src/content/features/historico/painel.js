@@ -11,6 +11,7 @@ import {
   contar,
   limpar,
   remover,
+  removerVarios,
   favoritar,
   paraCsv,
   onMudanca,
@@ -480,61 +481,91 @@ export function montarPainel(ctx) {
         el('button', {
           class: 'seix-btn seix-btn--secundario',
           text: 'Limpar',
-          onclick: () => limparComCuidado(),
+          title: 'Apaga o que está nesta lista, respeitando aba, período e busca',
+          onclick: () => limparComCuidado(registros),
         }),
       ]),
     );
   }
 
   /**
-   * Limpar em dois passos, e nunca por acidente.
+   * O que a lista mostra agora, dito em palavras.
    *
-   * O primeiro "Limpar" preserva os favoritos — é para isso que a estrela
-   * existe. Quando só restam favoritos, o mesmo botão pergunta se é para
-   * apagar também eles: assim dá para chegar ao vazio, mas só dizendo sim
-   * duas vezes, em telas diferentes.
+   * Entra na confirmacao para que "Limpar" nunca seja uma caixa-preta: quem
+   * esta na aba "Processos criados" com filtro de 30 dias precisa ler que e
+   * isso que vai embora, e nao o historico inteiro.
    */
-  async function limparComCuidado() {
-    const total = await contar();
-    const favoritos = (await listar({ somenteFavoritos: true, identidades })).length;
-    const comuns = total - favoritos;
+  function recorteAtual() {
+    const partes = [];
+    const aba = TIPOS.find((t) => t.id === estado.tipoEvento);
+    if (aba && aba.id !== 'tudo') partes.push(`da aba "${aba.rotulo}"`);
 
-    if (!total) {
-      toast('O histórico já está vazio.', { tipo: 'info' });
+    const periodo = PERIODOS.find((x) => x.id === estado.periodo);
+    if (periodo && periodo.dias) partes.push(`dos últimos ${periodo.dias} dias`);
+
+    if (estado.soFavoritos) partes.push('marcados como favoritos');
+    if (estado.busca.trim()) partes.push(`que casam com "${estado.busca.trim()}"`);
+
+    return partes.length ? ` ${partes.join(', ')}` : '';
+  }
+
+  /**
+   * Limpar o que ESTA NA LISTA, em dois passos, e nunca por acidente.
+   *
+   * "Limpar tudo" apagava o historico inteiro, estivesse a pessoa vendo o que
+   * fosse. Agora o botao leva exatamente o que a tela mostra: na aba
+   * "Processos criados", so processos criados; sem filtro nenhum, tudo.
+   *
+   * Os favoritos continuam de fora - e para isso que a estrela existe. Quando
+   * so restam favoritos na lista, o mesmo botao pergunta se e para levar eles
+   * tambem: dois "sim", em telas diferentes.
+   */
+  async function limparComCuidado(visiveis) {
+    const lista = visiveis || [];
+    if (!lista.length) {
+      toast('Não há nada nesta lista para limpar.', { tipo: 'info' });
       return;
     }
 
-    if (comuns > 0) {
+    const favoritos = lista.filter((r) => r.favorito);
+    const comuns = lista.filter((r) => !r.favorito);
+    const recorte = recorteAtual();
+
+    if (comuns.length) {
       const ok = await confirmarDialogo({
         titulo: 'Limpar o histórico',
-        texto: favoritos
-          ? `Isso apaga ${comuns} registro(s) deste navegador. Os ${favoritos} favorito(s) ficam. Não afeta nada no SEI, e não dá para desfazer.`
-          : 'Isso apaga todos os registros guardados pela extensão neste navegador. Não afeta nada no SEI, mas não dá para desfazer.',
-        confirmarTexto: `Apagar ${comuns}`,
+        texto:
+          `Isso apaga ${comuns.length} registro(s)${recorte} deste navegador.` +
+          (favoritos.length ? ` Os ${favoritos.length} favorito(s) ficam.` : '') +
+          ' Não afeta nada no SEI, e não dá para desfazer.',
+        confirmarTexto: `Apagar ${comuns.length}`,
       });
       if (!ok) return;
 
-      const { restaram } = await limpar();
+      const { apagados, poupados } = await removerVarios(comuns.map((r) => r.id));
       toast(
-        restaram
-          ? `${comuns} apagado(s). ${restaram} favorito(s) mantido(s).`
-          : 'Histórico apagado.',
+        poupados
+          ? `${apagados} apagado(s). ${poupados} favorito(s) mantido(s).`
+          : `${apagados} registro(s) apagado(s).`,
         { tipo: 'sucesso' },
       );
       render();
       return;
     }
 
-    // Só restam favoritos: a segunda pergunta.
     const ok = await confirmarDialogo({
       titulo: 'Apagar também os favoritos?',
-      texto: `Só restam ${favoritos} favorito(s). Eles foram marcados para não sumir na limpeza — apagar agora é definitivo.`,
+      texto:
+        `Nesta lista só restam ${favoritos.length} favorito(s). Eles foram marcados ` +
+        'para não sumir na limpeza — apagar agora é definitivo.',
       confirmarTexto: 'Apagar os favoritos',
     });
     if (!ok) return;
 
-    await limpar({ inclusiveFavoritos: true });
-    toast('Histórico apagado, favoritos inclusive.', { tipo: 'sucesso' });
+    const { apagados } = await removerVarios(favoritos.map((r) => r.id), {
+      inclusiveFavoritos: true,
+    });
+    toast(`${apagados} favorito(s) apagado(s).`, { tipo: 'sucesso' });
     render();
   }
 
