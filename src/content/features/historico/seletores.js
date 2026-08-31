@@ -28,7 +28,8 @@
  * formulario da tela. Quando o seletor especifico falha, quem acha o
  * formulario certo e o botao - ver formularioAlvo() em captura.js.
  */
-import { qsa, textoCasa, textoDe } from '../../core/dom.js';
+import { qsa, qsAny, textoCasa, textoDe } from '../../core/dom.js';
+import { mapaDeColunas } from '../../core/tabela.js';
 import { PADROES_NUP } from '../../core/nup.js';
 
 /* ------------------------------------------------------------- assinatura */
@@ -117,6 +118,67 @@ export const ARVORE = {
   // Link do proprio documento, usado para achar o texto do no.
   linkDocumento: 'a[href*="acao=documento_visualizar"], a[href*="id_documento="]',
 };
+
+/* ------------------------------------------- documentos de um bloco */
+
+/**
+ * Tela "Documentos do Bloco de Assinatura N" (acao=rel_bloco_protocolo_listar).
+ *
+ * CONFIRMADO no HTML:
+ *
+ *   <table id="tblProtocolosBlocos">
+ *     <tr><th>Seq.</th><th>Processo</th><th>Documento</th>
+ *         <th>Tipo</th><th>Assinaturas</th>...</tr>
+ *     <tr>
+ *       <td data-label="Documento"><a ...>00102458</a></td>
+ *       <td data-label="Assinaturas"></td>   <- VAZIA: ainda nao assinado
+ *
+ * O que esta confirmado e o caso VAZIO, capturado num bloco disponibilizado e
+ * ainda nao assinado. O caso preenchido nao foi visto - por isso a regra e
+ * "tem conteudo = tem assinatura", que nao depende de saber COMO ele e
+ * preenchido. O cabecalho da coluna nao deixa duvida sobre o significado.
+ *
+ * Esta tela NAO traz o id interno em lugar nenhum: o link do documento e
+ * href="#" com onclick. So o numero visivel, que e a outra chave dos
+ * registros.
+ */
+export const BLOCO_PROTOCOLOS = {
+  tabela: ['#tblProtocolosBlocos', 'table.infraTable'],
+  colunas: { documento: 'documento', assinaturas: 'assinaturas' },
+};
+
+/**
+ * Numeros dos documentos que a tela mostra COM assinatura.
+ *
+ * Devolve lista vazia quando a tela nao e essa - e o que faz a varredura
+ * poder rodar em qualquer lugar sem inventar nada.
+ */
+export function documentosAssinadosNoBloco(raiz = document) {
+  const tabela = qsAny(BLOCO_PROTOCOLOS.tabela, raiz);
+  if (!tabela) return [];
+
+  const colunas = mapaDeColunas(tabela);
+  // Coluna nao encontrada deixa o indice indefinido, e a checagem de celula
+  // logo abaixo ja descarta a linha. Uma guarda aqui seria linha morta -
+  // sabotei tirando e nenhum teste caiu.
+  const iDoc = colunas[BLOCO_PROTOCOLOS.colunas.documento];
+  const iAss = colunas[BLOCO_PROTOCOLOS.colunas.assinaturas];
+
+  const assinados = [];
+  for (const linha of qsa('tr', tabela)) {
+    const tds = qsa('td', linha);
+    if (!tds.length) continue;
+
+    const celulaDoc = tds[iDoc];
+    const celulaAss = tds[iAss];
+    if (!celulaDoc || !celulaAss) continue;
+    if (!textoDe(celulaAss).trim()) continue; // sem assinatura: nada a resolver
+
+    const numero = textoDe(celulaDoc).trim();
+    if (numero) assinados.push(numero);
+  }
+  return assinados;
+}
 
 /* -------------------------------------------------------------- documento */
 

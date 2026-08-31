@@ -936,3 +936,43 @@ test('lista vazia não quebra', () => {
   assert.deepEqual(hist.pendentesDeAssinatura([]), []);
   assert.deepEqual(hist.pendentesDeAssinatura(null), []);
 });
+
+test('marcar por número resolve o pendente', async () => {
+  // A tela do bloco não expõe o id interno em lugar nenhum — o link do
+  // documento é href="#" com onclick. Só o número visível.
+  await zerar();
+  await hist.registrar(criado(1));
+
+  assert.equal(await hist.marcarAssinadosPorNumero(['00101']), 1);
+  assert.deepEqual(hist.pendentesDeAssinatura(await meus()), []);
+});
+
+test('marcar por número só atinge criação de documento', async () => {
+  // Quem garante isso é o PREFIXO: marcarAssinadosVistos só encontra chave
+  // . Um registro de assinatura com o mesmo número não
+  // tem onde ser marcado.
+  await zerar();
+  await hist.registrar(assinado(1));
+
+  assert.equal(await hist.marcarAssinadosPorNumero(['00101']), 0);
+  assert.equal((await meus())[0].assinadoVisto, undefined);
+});
+
+test('número que não está no histórico não marca nada', async () => {
+  await zerar();
+  await hist.registrar(criado(1));
+
+  assert.equal(await hist.marcarAssinadosPorNumero(['99999']), 0);
+  assert.equal(await hist.marcarAssinadosPorNumero([]), 0);
+  assert.equal(await hist.marcarAssinadosPorNumero(null), 0);
+  assert.equal(hist.pendentesDeAssinatura(await meus()).length, 1);
+});
+
+test('a varredura do bloco entra no varrer()', () => {
+  // Fiação: os testes acima chamam a marcação à mão. Sabotei tirando a
+  // chamada de varrer() e nenhum deles caiu.
+  const fonte = fs.readFileSync('src/content/features/historico/captura.js', 'utf8');
+
+  assert.match(fonte, /const doBloco = await varrerBlocoDeAssinatura\(\);/);
+  assert.match(fonte, /doCorpo \+ daArvore \+ doAndamento \+ doBloco/);
+});
