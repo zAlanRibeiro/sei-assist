@@ -118,7 +118,7 @@ function telaDeTroca(unidades, { comDataLabel = true } = {}) {
 
 const TRES = [
   { sigla: 'NIT/NITTRANS/DIVEST', descricao: 'Divisão de Estatísticas', orgao: 'NITEROI', atual: true },
-  { sigla: 'NIT/NITTRANS/DEPGM', descricao: 'Departamento Geral', orgao: 'NITEROI' },
+  { sigla: 'NIT/NITTRANS/DEPGM', descricao: 'Departamento de Gestão e Modernização', orgao: 'NITEROI' },
   { sigla: 'NIT/NITTRANS/CHEFGAB', descricao: 'Chefia de Gabinete', orgao: 'NITEROI' },
 ];
 
@@ -148,7 +148,7 @@ test('sem data-label, lê pelo cabeçalho', () => {
 
   assert.equal(lidas.length, 3);
   assert.equal(lidas[1].sigla, 'NIT/NITTRANS/DEPGM');
-  assert.equal(lidas[1].descricao, 'Departamento Geral');
+  assert.equal(lidas[1].descricao, 'Departamento de Gestão e Modernização');
 });
 
 test('a linha de cabeçalho não vira unidade', () => {
@@ -306,7 +306,7 @@ test('a lista marca a unidade atual e libera as outras', () => {
 
   assert.deepEqual(itens.map((i) => i.atual), [true, false, false]);
   assert.deepEqual(itens.map((i) => i.acionavel), [false, true, true]);
-  assert.equal(itens[1].descricao, 'Departamento Geral');
+  assert.equal(itens[1].descricao, 'Departamento de Gestão e Modernização');
 });
 
 test('a unidade atual vem da BARRA, não da lista guardada', () => {
