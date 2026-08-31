@@ -402,13 +402,13 @@ export default {
       if (ehFechado(permissao.motivo)) {
         toast(
           `Documento ${permissao.motivo}: o rascunho nao sera guardado.`,
-          { tipo: 'aviso', duracao: 6000 },
+          { tipo: 'alerta', duracao: 6000 },
         );
       } else if (permissao.motivo === 'nivel-desconhecido') {
         toast(
           'Nao identifiquei o nivel de acesso deste documento; por sua opcao, ' +
             'o rascunho nao sera guardado.',
-          { tipo: 'aviso', duracao: 6000 },
+          { tipo: 'alerta', duracao: 6000 },
         );
         diagnosticar();
       }
