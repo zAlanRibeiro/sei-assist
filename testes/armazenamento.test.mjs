@@ -618,3 +618,111 @@ test('varredura posterior nao apaga a origem ja gravada', async () => {
   assert.equal(registro.documento, '00097393', 'o numero novo entrou');
   assert.equal(registro.via, 'bloco', 'e a origem sobreviveu');
 });
+
+/* ------------------------------------------------------------- favoritos */
+
+const DONO = 'Alan';
+const quandoAgora = () => new Date().toISOString();
+const zerar = () => hist.limpar({ inclusiveFavoritos: true });
+const meus = (extra = {}) => hist.listar({ identidades: [DONO], ...extra });
+
+test('favoritar marca e desmarca', async () => {
+  await zerar();
+  await hist.registrar({ id: 'a', documento: '1', quando: quandoAgora(), assinante: DONO });
+
+  assert.equal(await hist.favoritar('a'), true);
+  assert.equal((await meus({ somenteFavoritos: true })).length, 1);
+
+  assert.equal(await hist.favoritar('a', false), false);
+  assert.equal((await meus({ somenteFavoritos: true })).length, 0);
+});
+
+test('favoritar registro que não existe devolve null', async () => {
+  await zerar();
+
+  assert.equal(await hist.favoritar('nao-existe'), null);
+});
+
+test('a limpeza preserva os favoritos', async () => {
+  // É a razão de a estrela existir. Sem isto, favoritar não significa nada.
+  await zerar();
+  await hist.registrar({ id: 'a', documento: '1', quando: quandoAgora(), assinante: DONO });
+  await hist.registrar({ id: 'b', documento: '2', quando: quandoAgora(), assinante: DONO });
+  await hist.favoritar('b');
+
+  const { restaram } = await hist.limpar();
+
+  assert.equal(restaram, 1);
+  assert.deepEqual((await meus()).map((r) => r.id), ['b']);
+});
+
+test('a limpeza total leva os favoritos junto', async () => {
+  // Tem de existir um caminho até o vazio — mas só pedindo por ele.
+  await zerar();
+  await hist.registrar({ id: 'b', documento: '2', quando: quandoAgora(), assinante: DONO });
+  await hist.favoritar('b');
+
+  await hist.limpar({ inclusiveFavoritos: true });
+
+  assert.equal((await meus()).length, 0);
+});
+
+test('gravar de novo não apaga a estrela', async () => {
+  // O mesmo documento é visto por várias fontes — assinatura, árvore,
+  // andamento. Nenhuma delas conhece o favorito, e sem proteção a segunda
+  // passagem desmarcaria em silêncio o que a pessoa marcou à mão.
+  await zerar();
+  await hist.registrar({ id: 'a', documento: '1', quando: quandoAgora(), assinante: DONO });
+  await hist.favoritar('a');
+
+  await hist.registrar({
+    id: 'a',
+    documento: '1',
+    tipo: 'Despacho',
+    quando: quandoAgora(),
+    assinante: DONO,
+  });
+
+  const [registro] = await meus();
+  assert.equal(registro.favorito, true);
+  assert.equal(registro.tipo, 'Despacho', 'o resto do registro continua sendo atualizado');
+});
+
+test('separarFavoritos conta o que sai e o que fica', () => {
+  const { guardados, quantosSaem } = hist.separarFavoritos({
+    a: { favorito: true },
+    b: {},
+    c: { favorito: true },
+    d: {},
+  });
+
+  assert.deepEqual(Object.keys(guardados).sort(), ['a', 'c']);
+  assert.equal(quantosSaem, 2);
+});
+
+test('separarFavoritos aceita vazio', () => {
+  assert.deepEqual(hist.separarFavoritos({}), { guardados: {}, quantosSaem: 0 });
+  assert.deepEqual(hist.separarFavoritos(null), { guardados: {}, quantosSaem: 0 });
+});
+
+test('nem um favorito:false explícito desmarca a estrela', async () => {
+  // O teste acima passava mesmo sem a proteção, porque `novo` não trazia o
+  // campo e o espalhamento do antigo já o preservava. O caso que a proteção
+  // de fato cobre é este: o filtro do merge descarta null, undefined e '',
+  // mas NÃO descarta false — então uma fonte que mandasse `favorito: false`
+  // apagaria a marca. Só a pessoa desmarca, pelo `favoritar`.
+  await zerar();
+  await hist.registrar({ id: 'a', documento: '1', quando: quandoAgora(), assinante: DONO });
+  await hist.favoritar('a');
+
+  await hist.registrar({
+    id: 'a',
+    documento: '1',
+    quando: quandoAgora(),
+    assinante: DONO,
+    favorito: false,
+  });
+
+  const [registro] = await meus();
+  assert.equal(registro.favorito, true);
+});

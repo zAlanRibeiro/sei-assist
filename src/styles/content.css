@@ -380,6 +380,36 @@ a.seix-hist__titulo:hover { text-decoration: underline; }
 .seix-hist__item:hover .seix-hist__remover { opacity: 1; }
 .seix-hist__remover:hover { color: var(--seix-cor-erro, #c62828); }
 
+/* A estrela fica ao lado do "x", e um degrau acima dele: some no hover como
+   o "x" APENAS quando esta apagada. Favorito marcado fica sempre visivel -
+   uma marca que so aparece no hover nao serve para localizar nada. */
+.seix-hist__favorito {
+  position: absolute;
+  top: 6px;
+  right: 16px;
+  padding: 0 5px;
+  border: 0;
+  background: transparent;
+  color: var(--seix-cor-texto-fraco, #98a2b3);
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.seix-hist__item:hover .seix-hist__favorito,
+.seix-hist__favorito:focus-visible { opacity: 1; }
+
+.seix-hist__favorito:hover { color: var(--seix-cor-alerta, #b8860b); }
+
+.seix-hist__favorito--ativo {
+  opacity: 1;
+  color: var(--seix-cor-alerta, #b8860b);
+}
+
+.seix-hist__so-favoritos { white-space: nowrap; }
+
 .seix-hist__vazio {
   padding: 22px 6px;
   color: var(--seix-cor-texto-suave, #667085);

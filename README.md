@@ -14,7 +14,8 @@ próprio domínio, e a extensão reconhece o padrão, não um endereço fixo.
 
 - **Histórico do que você assinou, enviou e criou.** Painel no Controle de
   Processos, com busca, filtro por período, distinção entre o que foi assinado
-  pelo bloco e pela árvore do processo, e exportação para CSV.
+  pelo bloco e pela árvore do processo, e exportação para CSV. Registros
+  marcados como **favoritos** sobrevivem à limpeza da lista.
 - **Alerta de bloco de assinatura.** Avisa quando entra bloco novo na sua
   unidade, com contador no ícone, tarja na página e marcador no menu.
 - **Rascunho no editor.** Recupera o texto quando a sessão do SEI expira no

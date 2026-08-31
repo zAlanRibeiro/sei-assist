@@ -399,6 +399,8 @@ section > * + * { margin-top: .9rem; }
 }
 
 .registro + .registro { margin-top: .4rem; }
+.registro .estrela { color: var(--documento); }
+.registro .estrela.apagada { color: var(--tinta-fraca); }
 .registro .quando { color: var(--tinta-fraca); font-family: "IBM Plex Mono", monospace; font-size: .75rem; }
 
 .etiqueta {
@@ -629,11 +631,41 @@ details > *:not(summary) { margin-top: .6rem; font-size: .9375rem; color: var(--
         <li>Filtro por período: 7 dias, 30 dias ou tudo.</li>
         <li>A etiqueta de origem distingue o que foi assinado <strong>pelo bloco</strong> do que foi assinado <strong>pela árvore do processo</strong>.</li>
         <li>Exportação para CSV, com separador <code>;</code> e BOM — abre direto no Excel em português.</li>
+        <li><strong>Favoritos:</strong> a estrela em cada registro o protege da limpeza.</li>
       </ul>
       <p>
         Abrir um processo também recolhe do andamento o que já aconteceu antes de a
         extensão existir. Nada é enviado a lugar nenhum.
       </p>
+
+      <h3>Favoritos</h3>
+      <p>
+        O histórico cresce e uma hora você limpa. Os registros que não podem sumir
+        nessa hora ganham uma estrela — clique nela na linha do registro.
+      </p>
+
+      <div class="demo">
+        <div class="registro">
+          <span class="estrela">★</span>
+          <span class="etiqueta et-assinado">ASSINADO</span>
+          <span class="nup">00098329</span>
+          <span>Despacho</span>
+          <span class="quando">27/08 15:34</span>
+        </div>
+        <div class="registro">
+          <span class="estrela apagada">☆</span>
+          <span class="etiqueta et-enviado">ENVIADO</span>
+          <span class="nup">NIT-050131/000463/2026</span>
+          <span class="quando">24/08 12:24</span>
+        </div>
+      </div>
+
+      <ul>
+        <li><strong>Limpar</strong> apaga o resto e mantém os favoritos. A confirmação diz quantos vão e quantos ficam.</li>
+        <li>O botão <strong>★ Favoritos</strong>, junto dos períodos, mostra só os marcados.</li>
+        <li>Favorito também não cai no teto de 5.000 registros: quando o histórico enche, os comuns saem primeiro.</li>
+        <li>Para chegar ao vazio de verdade, limpe uma segunda vez — aí a extensão pergunta se é para apagar os favoritos também.</li>
+      </ul>
     </section>
 
     <section id="bloco">
@@ -882,7 +914,7 @@ details > *:not(summary) { margin-top: .6rem; font-size: .9375rem; color: var(--
             <tr><th>O que</th><th>Para quê</th><th>Por quanto tempo</th></tr>
           </thead>
           <tbody>
-            <tr><td>Histórico de assinaturas e envios</td><td>O painel</td><td>Até 5.000 registros, ou até você limpar</td></tr>
+            <tr><td>Histórico de assinaturas e envios</td><td>O painel</td><td>Até 5.000 registros, ou até você limpar — <strong>favoritos ficam</strong></td></tr>
             <tr><td>Rascunho do editor <span class="nome-opcao">(nunca de documento restrito)</span></td><td>Recuperar texto se a sessão expirar</td><td>3 dias, ou até salvar o documento</td></tr>
             <tr><td>Estado do bloco de assinatura</td><td>Saber o que é novidade</td><td>Até a próxima consulta</td></tr>
             <tr><td>Suas unidades e onde o processo está aberto</td><td>A lista da barra e a faixa do andamento</td><td>Meia hora, para as unidades abertas</td></tr>
