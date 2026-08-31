@@ -263,3 +263,47 @@ test('tela sem andamento nenhum nao devolve tabela', () => {
 
   assert.equal(acharTabela(raiz), null);
 });
+
+/* ---------------------------------------- assinatura registrada no andamento */
+
+test('le a assinatura de qualquer pessoa no andamento', () => {
+  // Linha real da captura. É a fonte que fecha o caso do documento que você
+  // criou e OUTRA pessoa assinou: a árvore da sua unidade pode não mostrar,
+  // mas o andamento registra a assinatura de quem quer que seja.
+  const e = lerLinha([
+    '27/08/2026 15:34',
+    'NIT/NITTRANS/DIVEST',
+    'nelsongoda@nittrans.niteroi.rj.gov.br',
+    'Assinado Documento 00083236 (Despacho) por nelsongoda@nittrans.niteroi.rj.gov.br',
+  ]);
+
+  assert.equal(e.tipo, 'documentoAssinado');
+  assert.equal(e.documento, '00083236');
+});
+
+test('cancelamento de assinatura não é assinatura', () => {
+  // "Cancelamento de assinatura do documento" e "Assinado Documento" convivem
+  // no mesmo andamento — a captura tem os dois. Confundir os dois resolveria
+  // como assinado um documento cuja assinatura acabou de ser cancelada.
+  const e = lerLinha([
+    '28/08/2026 16:21',
+    'NIT/NITTRANS/DIVIT',
+    'lilian.pollard@nittrans.niteroi.rj.gov.br',
+    'Cancelamento de assinatura do documento 00102458 (Correspondência Interna - NA 1)',
+  ]);
+
+  assert.notEqual(e && e.tipo, 'documentoAssinado');
+});
+
+test('assinatura não é confundida com criação', () => {
+  const assinado = lerLinha([
+    '27/08/2026 15:34',
+    'NIT/A',
+    'alan',
+    'Assinado Documento 00098329 (Despacho) por alan',
+  ]);
+  const gerado = lerLinha(['27/08/2026 15:34', 'NIT/A', 'alan', 'Gerado documento público 00098329']);
+
+  assert.equal(assinado.tipo, 'documentoAssinado');
+  assert.equal(gerado.tipo, 'documentoCriado');
+});

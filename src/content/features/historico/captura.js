@@ -575,6 +575,17 @@ export async function varrerAndamento(identidades = []) {
   const idProcedimento = paramDaUrl(location.href, 'id_procedimento');
   let gravados = 0;
 
+  // O andamento registra "Assinado Documento X por fulano" para QUALQUER
+  // pessoa. E a fonte automatica que fecha o caso do documento que voce criou
+  // e outra pessoa assinou - a arvore tambem resolve, mas so quando o
+  // documento continua nela.
+  //
+  // So marca como visto. Nao vira registro: assinatura de terceiro nao entra
+  // no historico, aqui como em lugar nenhum.
+  await marcarAssinadosPorNumero(
+    eventos.filter((e) => e.tipo === 'documentoAssinado' && e.documento).map((e) => e.documento),
+  );
+
   const anotar = async (tipoEvento, quando, campos, usuario) => {
     // Evento de colega no mesmo processo nao entra no historico.
     if (!ehMinha(usuario, identidades)) return;

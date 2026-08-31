@@ -976,3 +976,26 @@ test('a varredura do bloco entra no varrer()', () => {
   assert.match(fonte, /const doBloco = await varrerBlocoDeAssinatura\(\);/);
   assert.match(fonte, /doCorpo \+ daArvore \+ doAndamento \+ doBloco/);
 });
+
+test('a varredura do andamento resolve os pendentes', () => {
+  // Fiação. É a terceira fonte automática, e a única que enxerga assinatura
+  // de terceiro sem depender da árvore da sua unidade.
+  const fonte = fs.readFileSync('src/content/features/historico/captura.js', 'utf8');
+  const trecho = fonte.slice(fonte.indexOf('export async function varrerAndamento'));
+
+  assert.match(
+    trecho.slice(0, 1200),
+    /marcarAssinadosPorNumero\([\s\S]{0,200}?documentoAssinado/,
+    'o andamento deveria marcar como vistos os documentos assinados',
+  );
+});
+
+test('não há mais marcação manual de assinatura', () => {
+  // Ela existia só porque o caminho automático não estava pronto. Com três
+  // fontes automáticas — árvore, bloco e andamento —, um botão de "marcar
+  // como assinado" seria uma forma de mentir para si mesmo numa lista cujo
+  // valor inteiro é ser verdadeira.
+  const painel = fs.readFileSync('src/content/features/historico/painel.js', 'utf8');
+
+  assert.equal(/aoResolver|seix-hist__resolvido/.test(painel), false);
+});

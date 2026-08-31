@@ -54,6 +54,13 @@ export const ANDAMENTO = {
     // faltasse trocaria uma pela outra em silencio. Melhor nao reconhecer a
     // linha do que reconhece-la ao contrario.
     recebido: /Processo recebido na unidade\s*([A-Z0-9][A-Z0-9/._-]{1,60})?/i,
+    // CONFIRMADO na tela: "Assinado Documento 00098329 (Despacho) por
+    // fulano@orgao". O andamento registra a assinatura de QUALQUER pessoa -
+    // e por isso ele resolve o pendente que a arvore da unidade nao resolve.
+    //
+    // Nao colide com "Cancelamento de assinatura do documento": aqui a ordem
+    // e "assinado documento", la e "assinatura do documento".
+    documentoAssinado: /assinado\s+documento\s+(\d{4,})/i,
     // As duas ordens de palavra: "Processo publico gerado" e "Gerado o
     // processo publico". Nao vi o texto real deste orgao, entao aceito ambas.
     processoCriado: /processo[^.]{0,30}?gerado|gerado[^.]{0,20}?processo/i,
@@ -69,6 +76,7 @@ export const ANDAMENTO = {
     remetido: 'unidade',
     recebido: 'unidade',
     documentoCriado: 'documento',
+    documentoAssinado: 'documento',
   },
 
   /** Numero de documento dentro da celula de descricao. */

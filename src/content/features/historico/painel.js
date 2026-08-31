@@ -15,8 +15,6 @@ import {
   removerVarios,
   favoritar,
   pendentesDeAssinatura,
-  marcarAssinadosVistos,
-  idInternoDe,
   paraCsv,
   onMudanca,
 } from './armazenamento.js';
@@ -176,12 +174,7 @@ export function comoRemover(registro, opcoes = {}) {
   return { perguntar: opcoes.confirmarRemocao !== false, comCaixa: true };
 }
 
-/** Documento seu que ainda não teve assinatura vista. */
-function pendente(registro) {
-  return registro.tipoEvento === 'documento-criado' && !registro.assinadoVisto;
-}
-
-function linhaDeRegistro(registro, aoRemover, aoFavoritar, aoResolver) {
+function linhaDeRegistro(registro, aoRemover, aoFavoritar) {
   const tipo = tipoDe(registro);
   const evento = EVENTOS[tipo];
   const titulo = evento.titulo(registro);
@@ -275,16 +268,6 @@ function linhaDeRegistro(registro, aoRemover, aoFavoritar, aoResolver) {
     [
       cabecalho,
       el('div', { class: 'seix-hist__detalhes' }, detalhes),
-      // Só em documento seu ainda pendente: nas outras linhas não haveria o
-      // que resolver, e um botão que não faz nada é pior que botão nenhum.
-      pendente(registro)
-        ? el('button', {
-            class: 'seix-hist__resolvido',
-            title: 'Já foi assinado — tirar da lista de pendentes',
-            text: '✓',
-            onclick: () => aoResolver(idInternoDe(registro)),
-          })
-        : null,
       el('button', {
         class: registro.favorito
           ? 'seix-hist__favorito seix-hist__favorito--ativo'
@@ -524,11 +507,6 @@ export function montarPainel(ctx) {
             () => removerComCuidado(registro),
             async (id, valor) => {
               await favoritar(id, valor);
-              render();
-            },
-            async (interno) => {
-              await marcarAssinadosVistos([interno]);
-              toast('Marcado como assinado.', { tipo: 'sucesso' });
               render();
             },
           ),

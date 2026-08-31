@@ -60,26 +60,3 @@ test('a caixa só desliga o aviso quando se confirma', () => {
   assert.match(primario.slice(0, 200), /aoLembrar\(/, 'confirmar deveria avisar quem escuta');
   assert.equal(/aoLembrar\(/.test(cancelar), false, 'cancelar não pode desligar nada');
 });
-
-/* ------------------------------------------ a saída manual do pendente */
-
-const FONTE_PAINEL = fs.readFileSync('src/content/features/historico/painel.js', 'utf8');
-
-test('só documento pendente ganha o botão de resolver', () => {
-  // Botão que não faz nada é pior que botão nenhum: assinatura e envio não
-  // têm o que resolver.
-  assert.match(
-    FONTE_PAINEL,
-    /function pendente\(registro\) \{\s*return registro\.tipoEvento === 'documento-criado' && !registro\.assinadoVisto;/,
-  );
-  assert.match(FONTE_PAINEL, /pendente\(registro\)\s*\?\s*el\('button'/, 'a linha decide pelo estado');
-});
-
-test('resolver marca como visto, não apaga o registro', () => {
-  // A diferença importa: o "x" apagaria a criação do histórico; aqui o
-  // registro continua, só sai da lista de pendentes.
-  const trecho = FONTE_PAINEL.slice(FONTE_PAINEL.indexOf('async (interno) =>'));
-
-  assert.match(trecho.slice(0, 200), /marcarAssinadosVistos\(\[interno\]\)/);
-  assert.equal(/remover\(/.test(trecho.slice(0, 200)), false, 'resolver não é remover');
-});
