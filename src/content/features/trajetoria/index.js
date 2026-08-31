@@ -15,12 +15,8 @@
  */
 import { el } from '../../core/dom.js';
 import { log } from '../../core/log.js';
-import {
-  acharTabela,
-  diagnosticarAbertas,
-  lerAndamentos,
-  lerUnidadesAbertas,
-} from '../../core/andamento.js';
+import { acharTabela, diagnosticarAbertas, lerAndamentos } from '../../core/andamento.js';
+import { unidadesAbertas } from './abertas.js';
 import { emUmaLinha, frasearAbertas, selo, trajetoria } from './trajetoria.js';
 
 const ID = 'seix-trajetoria';
@@ -105,13 +101,19 @@ export default {
   setup() {
     let vivo = true;
 
-    const pintar = () => {
+    // Roda em TODA tela, e não só na do andamento: a caixa "Processo aberto
+    // nas unidades" vive na tela do processo, e some quando o SEI troca
+    // aquele frame pelo andamento. Guardar enquanto ela existe é a única
+    // forma de tê-la depois.
+    unidadesAbertas().catch((err) => log.debug('não consegui ler as unidades abertas:', err));
+
+    const pintar = async () => {
       if (!vivo || document.getElementById(ID)) return;
 
       const eventos = lerAndamentos();
       // Sem eventos, esta não é a tela do andamento. A feature declara
       // telas: ['*'] porque o nome da ação desta tela nunca foi confirmado —
-      // quem decide é o conteúdo.
+      // quem decide é o conteúdo. Silêncio aqui é o normal.
       if (!eventos.length) return;
 
       const agora = Date.now();
@@ -122,23 +124,34 @@ export default {
       }
 
       const tabela = acharTabela();
-      if (!tabela || !tabela.parentElement) return;
+      if (!tabela || !tabela.parentElement) {
+        // Isto ANTES não dizia nada, e "a faixa não apareceu" ficava sem
+        // explicação nenhuma no console.
+        log.debug(`trajetoria: ${eventos.length} evento(s) lidos, mas não achei a tabela`);
+        return;
+      }
 
-      // A lista do SEI e a unica fonte que sabe do "manter aberto na unidade
-      // atual". Sem ela o selo deduz pelo andamento, e a deducao so erra para
-      // menos - por isso, quando falta, vale relatar o que ha na tela.
-      const abertasNoSei = lerUnidadesAbertas();
+      const abertasNoSei = await unidadesAbertas();
       if (!abertasNoSei) diagnosticarAbertas();
 
+      // Entre o await e agora, outra passada pode ter desenhado a faixa.
+      if (!vivo || document.getElementById(ID)) return;
+
       tabela.parentElement.insertBefore(montarFaixa(paradas, agora, abertasNoSei), tabela);
-      log.debug(`trajetoria: ${paradas.length} parada(s)`);
+      log.debug(
+        `trajetoria: ${paradas.length} parada(s), abertas ${
+          abertasNoSei ? abertasNoSei.join(', ') : '(desconhecidas)'
+        }`,
+      );
     };
 
-    pintar();
+    pintar().catch((err) => log.debug('trajetoria: falha ao desenhar', err));
 
     // A tabela do andamento é montada pelo SEI depois do carregamento em
     // algumas telas; uma passada só pegaria a página ainda vazia.
-    const observador = new MutationObserver(() => pintar());
+    const observador = new MutationObserver(() => {
+      pintar().catch((err) => log.debug('trajetoria: falha ao desenhar', err));
+    });
     observador.observe(document.body, { childList: true, subtree: true });
 
     return () => {
