@@ -146,10 +146,15 @@
   color: var(--seix-cor-primaria-realce, #0c326f);
 }
 
+/* Cor EXPLICITA, como em todo texto que a extensao injeta. Herdar do
+   .seix-dialogo nao funciona dentro do HTML do SEI: heranca so vale quando
+   nenhuma regra casa com o elemento, e o tema do SEI tem regra para <p>. A
+   regra deles ganha, e o texto do dialogo saia quase apagado. */
 .seix-dialogo__texto {
   margin: 0 0 18px;
   white-space: pre-wrap;
   line-height: 1.5;
+  color: var(--seix-cor-texto, #1c1c1c);
 }
 
 .seix-dialogo__acoes {
@@ -232,6 +237,7 @@
 .seix-inspetor { display: flex; flex-direction: column; gap: 10px; }
 
 .seix-inspetor__info {
+  color: var(--seix-cor-texto, #1c1c1c);
   margin: 0;
   padding: 8px;
   border-radius: 4px;
@@ -260,6 +266,8 @@
 .seix-hist { display: flex; flex-direction: column; gap: 10px; height: 100%; }
 
 .seix-hist__busca {
+  background: var(--seix-cor-fundo, #ffffff);
+  color: var(--seix-cor-texto, #1c1c1c);
   padding: 7px 9px;
   border: 1px solid var(--seix-cor-borda, #d0d5dd);
   border-radius: 4px;
@@ -270,6 +278,7 @@
 .seix-hist__filtros { display: flex; gap: 6px; }
 
 .seix-hist__periodo {
+  color: var(--seix-cor-texto, #1c1c1c);
   flex: 1;
   padding: 5px 8px;
   border: 1px solid var(--seix-cor-borda, #d0d5dd);
