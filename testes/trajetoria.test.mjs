@@ -450,7 +450,7 @@ test('processo que saiu e ainda não chegou não tem selo', () => {
 
 /* ------------------------------------- o processo aberto em várias unidades */
 
-const { lerUnidadesAbertas } = await import('../src/content/core/andamento.js');
+const { lerUnidadesAbertasEm, lerUnidadesAbertas } = await import('../src/content/core/andamento.js');
 const { frasearAbertas } = await import('../src/content/features/trajetoria/trajetoria.js');
 const { elemento, instalarDocumento } = await import('./domFalso.mjs');
 
@@ -521,7 +521,7 @@ test('lê as unidades abertas da caixa do SEI', () => {
     ]),
   );
 
-  assert.deepEqual(lerUnidadesAbertas(doc), [DEPGM, DIVEST, DIVIT]);
+  assert.deepEqual(lerUnidadesAbertasEm(doc), [DEPGM, DIVEST, DIVIT]);
 });
 
 test('tela sem a caixa devolve null, e não lista vazia', () => {
@@ -529,7 +529,7 @@ test('tela sem a caixa devolve null, e não lista vazia', () => {
   // lugar nenhum". Quem chama trata os dois de forma diferente.
   const doc = instalarDocumento(elemento('body', {}, [elemento('p', {}, ['Nada aqui'])]));
 
-  assert.equal(lerUnidadesAbertas(doc), null);
+  assert.equal(lerUnidadesAbertasEm(doc), null);
 });
 
 test('a caixa não arrasta as siglas da tabela de andamento', () => {
@@ -550,7 +550,7 @@ test('a caixa não arrasta as siglas da tabela de andamento', () => {
     ]),
   );
 
-  assert.deepEqual(lerUnidadesAbertas(doc), [DIVEST]);
+  assert.deepEqual(lerUnidadesAbertasEm(doc), [DIVEST]);
 });
 
 test('a lista do SEI manda no selo', () => {
@@ -592,7 +592,63 @@ test('siglas em elementos irmãos não se colam numa só', () => {
     ]),
   );
 
-  const lidas = lerUnidadesAbertas(doc);
+  const lidas = lerUnidadesAbertasEm(doc);
   assert.deepEqual(lidas, [DEPGM, DIVEST]);
   assert.equal(lidas.every((s) => s.split('/').length === 3), true, 'nenhuma sigla grudada');
+});
+
+test('a caixa é procurada em todos os frames alcançáveis', () => {
+  // A tela do SEI é feita de frames irmãos, e a caixa pode não estar no mesmo
+  // frame da tabela de andamento. Procurar só no local devolvia null — e o
+  // selo caía na dedução pelo andamento, que NÃO tem como acertar: ela não
+  // sabe do "manter aberto na unidade atual" e só erra para menos.
+  const semCaixa = instalarDocumento(elemento('body', {}, [elemento('p', {}, ['tabela aqui'])]));
+  const comCaixa = instalarDocumento(
+    elemento('body', {}, [
+      elemento('div', {}, [
+        elemento('span', {}, ['Processo aberto nas unidades:']),
+        elemento('div', {}, [DEPGM]),
+        elemento('div', {}, [DIVEST]),
+        elemento('div', {}, [DIVIT]),
+      ]),
+    ]),
+  );
+
+  assert.equal(lerUnidadesAbertas([semCaixa]), null, 'só o frame sem a caixa');
+  assert.deepEqual(lerUnidadesAbertas([semCaixa, comCaixa]), [DEPGM, DIVEST, DIVIT]);
+});
+
+test('frame inacessível não derruba a busca', () => {
+  // Frame de outra origem lança ao ser lido. Um erro ali não pode impedir de
+  // achar a caixa no frame seguinte.
+  const explode = {
+    get body() {
+      throw new Error('outra origem');
+    },
+  };
+  const comCaixa = instalarDocumento(
+    elemento('body', {}, [
+      elemento('div', {}, [
+        elemento('span', {}, ['Processo aberto na(s) unidade(s):']),
+        elemento('div', {}, [DIVEST]),
+      ]),
+    ]),
+  );
+
+  assert.deepEqual(lerUnidadesAbertas([explode, comCaixa]), [DIVEST]);
+});
+
+test('o rótulo com parêntese de plural também casa', () => {
+  // "Processo aberto na(s) unidade(s):" aparece em telas do SEI, e a
+  // expressão antiga — n[a]s? — não cobria o parêntese.
+  const doc = instalarDocumento(
+    elemento('body', {}, [
+      elemento('div', {}, [
+        elemento('span', {}, ['Processo aberto na(s) unidade(s):']),
+        elemento('div', {}, [DIVEST]),
+      ]),
+    ]),
+  );
+
+  assert.deepEqual(lerUnidadesAbertasEm(doc), [DIVEST]);
 });
