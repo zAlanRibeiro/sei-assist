@@ -1039,6 +1039,19 @@ test('só completa os documentos que estão NESTA árvore', async () => {
   assert.equal(porId['2'] ?? null, null, 'o documento de outro processo não é tocado');
 });
 
+test('completa pelo número quando o id interno não vem da árvore', async () => {
+  // A árvore de outra instalação pode não usar id="anchor<digitos>". Nesse
+  // caso sobra só o número visível, e é ele que precisa casar. Sabotei tirando
+  // esse ramo e nenhum teste caiu — os outros passam o id interno junto.
+  await zerar();
+  await hist.registrar({ ...criado(1), processo: null });
+
+  const completados = await hist.completarProcessos(['00101'], 'NIT-050131/004049/2026');
+
+  assert.equal(completados, 1);
+  assert.equal((await meus())[0].processo, 'NIT-050131/004049/2026');
+});
+
 test('sem processo ou sem ids não mexe em nada', async () => {
   await zerar();
   await hist.registrar({ ...criado(1), processo: null });
@@ -1053,7 +1066,10 @@ test('a varredura da árvore é quem completa o processo', () => {
   // Fiação: a árvore é o único lugar que sabe processo e documentos juntos.
   const fonte = fs.readFileSync('src/content/features/historico/captura.js', 'utf8');
 
-  assert.match(fonte, /await completarProcessos\(Object\.keys\(mapa\), acharNup\(/);
+  // As chaves saem de `chavesDaArvore()`, e não do mapa montado a partir do
+  // href. O documento recém-criado — que é justamente o que precisa disso —
+  // não tem link de assinaturas e pode não ter id_documento no href.
+  assert.match(fonte, /await completarProcessos\(chavesDaArvore\(\), acharNup\(/);
 });
 
 test('a busca do processo olha os frames irmãos', () => {

@@ -338,3 +338,75 @@ test('tabela sem as colunas esperadas não produz nada', () => {
 
   assert.deepEqual(documentosAssinadosNoBloco(raiz), []);
 });
+
+/* ------------------------------------------- as chaves dos nós da árvore */
+
+const { chavesDaArvore } = await import('../src/content/features/historico/seletores.js');
+
+/**
+ * A árvore real, com os ids que a captura confirmou.
+ *
+ * O ponto: o id interno está no ATRIBUTO id (`anchor11965`, `span11965`), sem
+ * depender de href. As ações da árvore usam ids com letra no meio —
+ * `anchorA`, `anchorUG`, `anchorNA`, `anchorImg` — e não são documentos.
+ */
+function arvoreComNos() {
+  return elemento('body', { class: 'infraArvore' }, [
+    elemento('div', { id: 'divArvore' }, [
+      elemento('a', { id: 'anchorImg11965' }, [elemento('img', { id: 'icon11965' })]),
+      elemento('a', { id: 'anchor11965', class: 'infraArvoreNo' }, [
+        elemento('span', { id: 'span11965' }, ['Mensagem 1 1 (00009400)']),
+      ]),
+      elemento('a', { id: 'anchorUG11965', class: 'infraArvoreInformacao' }, [
+        elemento('span', {}, ['NIT/NITTRANS/DIVEST']),
+      ]),
+      elemento('a', { id: 'anchorA11965', class: 'infraArvoreNoAcao' }, [
+        elemento('img', { id: 'iconA11965', title: 'Assinado por: Alan' }),
+      ]),
+      elemento('a', { id: 'anchor11970', class: 'infraArvoreNo' }, [
+        elemento('span', { id: 'span11970' }, ['Despacho 00083236']),
+      ]),
+      elemento('a', { id: 'anchorNA11970', class: 'infraArvoreNoAcao' }, [
+        elemento('img', { id: 'iconNA11970', title: 'Acesso Restrito' }),
+      ]),
+    ]),
+  ]);
+}
+
+test('as chaves saem do id do elemento, sem depender de href', () => {
+  // O documento recém-criado — que é o que mais precisa disso — não tem link
+  // de assinaturas e pode não ter id_documento no href. Depender do href era
+  // o que deixava "processo desconhecido" sem conserto.
+  const raiz = arvoreComNos();
+  instalarDocumento(raiz);
+
+  const chaves = chavesDaArvore(raiz);
+  assert.ok(chaves.includes('11965'), 'id interno do primeiro nó');
+  assert.ok(chaves.includes('11970'), 'id interno do segundo nó');
+});
+
+test('as chaves trazem também o número visível', () => {
+  // Duas chaves porque os registros podem ter só uma: o documento entra no
+  // histórico antes de o SEI o numerar.
+  const chaves = chavesDaArvore(instalarDocumento(arvoreComNos()));
+
+  assert.ok(chaves.includes('00009400'));
+  assert.ok(chaves.includes('00083236'));
+});
+
+test('nenhuma chave estranha sai da árvore', () => {
+  // O conjunto exato, e não "não contém X": a árvore tem anchorA, anchorUG,
+  // anchorNA e anchorImg junto dos nós, e todos EMBUTEM o mesmo id do
+  // documento — então um padrão mais frouxo daria o mesmo resultado aqui.
+  // O padrão estrito é por clareza, não por proteção; o que este teste
+  // protege é o conjunto não crescer com lixo.
+  const chaves = chavesDaArvore(instalarDocumento(arvoreComNos())).sort();
+
+  assert.deepEqual(chaves, ['00009400', '00083236', '11965', '11970']);
+});
+
+test('árvore vazia não produz chave', () => {
+  const raiz = elemento('body', {}, [elemento('p', {}, ['nada'])]);
+
+  assert.deepEqual(chavesDaArvore(instalarDocumento(raiz)), []);
+});

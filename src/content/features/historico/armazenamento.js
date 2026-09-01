@@ -352,11 +352,11 @@ export async function marcarAssinadosVistos(idsInternos) {
  *
  * Só preenche o que esta vazio: registro que ja tem processo nao e tocado.
  *
- * @param {string[]} idsInternos documentos que estao NESTA arvore
+ * @param {string[]} chaves ids internos E/OU numeros dos documentos NESTA arvore
  * @param {string} processo NUP do processo aberto
  */
-export async function completarProcessos(idsInternos, processo) {
-  const ids = [...new Set((idsInternos || []).filter(Boolean).map(String))];
+export async function completarProcessos(chaves, processo) {
+  const ids = [...new Set((chaves || []).filter(Boolean).map(String))];
   if (!ids.length || !processo) return 0;
 
   const dados = await ler();
@@ -364,8 +364,13 @@ export async function completarProcessos(idsInternos, processo) {
 
   for (const registro of Object.values(dados.registros)) {
     if (registro.processo) continue;
+
+    // Duas chaves porque os registros podem ter so uma delas: o documento
+    // recem-criado entra no historico antes de o SEI o numerar, e o que vem
+    // da arvore pode chegar so com o numero.
     const interno = idInternoDe(registro);
-    if (!interno || !ids.includes(interno)) continue;
+    const numero = registro.documento ? String(registro.documento) : null;
+    if (!ids.includes(interno) && !ids.includes(numero)) continue;
 
     registro.processo = processo;
     completados += 1;
