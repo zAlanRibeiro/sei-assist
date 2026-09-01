@@ -68,6 +68,7 @@ import {
   PENDENCIA_DOCUMENTO,
 } from './armazenamento.js';
 import {
+  chavesDaArvore,
   documentosAssinadosNoBloco,
   processosParaEnviar,
   idsParaAssinar,
@@ -393,7 +394,11 @@ export async function varrerArvore() {
   // A arvore e o unico lugar que sabe, ao mesmo tempo, QUAL e o processo e
   // QUAIS documentos estao nele. Passar por ela conserta o registro que
   // nasceu com "processo desconhecido".
-  await completarProcessos(Object.keys(mapa), acharNup((document.body && document.body.textContent) || ''));
+  // As chaves saem do ID DO ELEMENTO e do texto do no, e nao do href: o
+  // documento recem-criado e o que mais precisa disso, e ele nao tem link de
+  // assinaturas nem, necessariamente, id_documento no href. Depender do href
+  // era justamente o que deixava "processo desconhecido" sem conserto.
+  await completarProcessos(chavesDaArvore(), acharNup((document.body && document.body.textContent) || ''));
 
   const links = qsa(ARVORE.linkAssinaturas);
   if (!links.length) return completados;

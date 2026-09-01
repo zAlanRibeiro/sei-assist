@@ -117,7 +117,43 @@ export const ARVORE = {
 
   // Link do proprio documento, usado para achar o texto do no.
   linkDocumento: 'a[href*="acao=documento_visualizar"], a[href*="id_documento="]',
+
+  /**
+   * O no de cada documento, pelo ID DO ELEMENTO.
+   *
+   * CONFIRMADO no HTML: <a id="anchor11965"> e <span id="span11965"> - o id
+   * interno do documento esta no proprio atributo, sem depender de href.
+   *
+   * Isto existe porque depender do href era fragil: as acoes da arvore usam
+   * ids com letra no meio (anchorA, anchorUG, anchorNA, anchorImg), e o no do
+   * documento e o unico que e "anchor" seguido so de digitos.
+   */
+  no: 'a[id^="anchor"], span[id^="span"]',
+  idNoAtributo: /^(?:anchor|span)(\d+)$/,
 };
+
+/**
+ * Os documentos que ESTAO nesta arvore: id interno e numero visivel.
+ *
+ * Devolve as duas chaves porque os registros podem ter so uma delas - o
+ * documento recem-criado entra no historico antes de o SEI o numerar.
+ *
+ * O no RAIZ da arvore e o processo, nao um documento, e o id dele e o
+ * id_procedimento. Ele entra na lista mesmo assim: quem consome cruza com
+ * registros de documento, e id de processo nao casa com chave de documento.
+ */
+export function chavesDaArvore(raiz = document) {
+  const chaves = new Set();
+
+  for (const no of qsa(ARVORE.no, raiz)) {
+    const casou = String(no.getAttribute('id') || '').match(ARVORE.idNoAtributo);
+    if (casou) chaves.add(casou[1]);
+
+    const numero = textoDe(no).match(/\b(\d{5,})\b/);
+    if (numero) chaves.add(numero[1]);
+  }
+  return [...chaves];
+}
 
 /* ------------------------------------------- documentos de um bloco */
 
