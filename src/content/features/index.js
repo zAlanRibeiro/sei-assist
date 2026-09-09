@@ -18,6 +18,7 @@ import copiarNumero from './copiar/index.js';
 import editor from './editor/index.js';
 import trajetoria from './trajetoria/index.js';
 import trocarUnidade from './unidade/index.js';
+import filtroMarcadores from './marcadores/index.js';
 
 export default [
   historicoAssinaturas,
@@ -26,6 +27,7 @@ export default [
   editor,
   trajetoria,
   trocarUnidade,
+  filtroMarcadores,
   marca,
   inspetor,
 ];

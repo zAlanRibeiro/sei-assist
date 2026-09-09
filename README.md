@@ -20,6 +20,11 @@ próprio domínio, e a extensão reconhece o padrão, não um endereço fixo.
 - **O que você criou e ainda não foi assinado.** A outra metade da pergunta:
   o histórico diz o que você fez, esta lista diz o que ficou pendente. Sai do
   que já está guardado, sem consulta nenhuma.
+- **Filtro por marcadores.** No Controle de Processos, os marcadores que
+  existem na lista viram botões acima dela, cada um com quantos processos
+  carrega. Escolhendo dois ou mais, ficam à vista só os processos que têm
+  **todos** eles; um botão ao lado troca para "qualquer um". Só esconde e
+  mostra linha — recarregar a tela devolve tudo.
 - **Alerta de bloco de assinatura.** Avisa quando entra bloco novo na sua
   unidade, com contador no ícone, tarja na página e marcador no menu.
 - **Rascunho no editor.** Recupera o texto quando a sessão do SEI expira no

@@ -139,6 +139,11 @@ class No {
     else this.atributos.set(nome, String(valor));
   }
 
+  removeAttribute(nome) {
+    if (nome === 'class') this._className = '';
+    else this.atributos.delete(nome);
+  }
+
   appendChild(filho) {
     filho.parentElement = this;
     this.childNodes.push(filho);
@@ -156,8 +161,31 @@ class No {
     this.parentElement = null;
   }
 
-  addEventListener() {
-    /* os testes não disparam eventos */
+  /**
+   * Guarda o ouvinte para que o teste possa acioná-lo com disparar().
+   *
+   * Existe porque testar a FUNÇÃO e não a LIGAÇÃO dela já escondeu seis
+   * defeitos neste projeto: a regra estava certa e ninguém a chamava. Com
+   * isto dá para clicar no botão que a feature desenhou e conferir o que
+   * acontece com a tela.
+   */
+  addEventListener(tipo, fn) {
+    if (typeof fn !== 'function') return;
+    if (!this.ouvintes) this.ouvintes = new Map();
+    this.ouvintes.set(tipo, [...(this.ouvintes.get(tipo) || []), fn]);
+  }
+
+  /** Aciona os ouvintes de um tipo. Só os testes chamam. */
+  disparar(tipo, evento = {}) {
+    for (const fn of (this.ouvintes && this.ouvintes.get(tipo)) || []) fn.call(this, evento);
+  }
+
+  insertBefore(novo, referencia) {
+    novo.parentElement = this;
+    const i = this.childNodes.indexOf(referencia);
+    if (i === -1) this.childNodes.push(novo);
+    else this.childNodes.splice(i, 0, novo);
+    return novo;
   }
 
   get previousElementSibling() {
@@ -244,10 +272,18 @@ export function instalarDocumento(raiz) {
     documentElement: raiz,
     body: raiz,
     createElement: (tag) => new No(tag),
+    // el() do dom.js embrulha filho de texto com isto.
+    createTextNode: (valor) => texto(valor),
     querySelector: (s) => raiz.querySelector(s),
     querySelectorAll: (s) => raiz.querySelectorAll(s),
     getElementById: (id) => raiz.querySelector(`#${id}`),
   };
+  // el() do dom.js pergunta `filho instanceof Node` antes de decidir se
+  // embrulha o filho em texto. Sem um Node global isso é ReferenceError; com
+  // um Node de verdade, os nós daqui não seriam instância dele. Este aqui
+  // responde pela marca que todo nó tem: nodeType.
+  globalThis.Node = { [Symbol.hasInstance]: (v) => Boolean(v && v.nodeType) };
+
   globalThis.document = doc;
   return doc;
 }

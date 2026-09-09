@@ -425,6 +425,77 @@ section > * + * { margin-top: .9rem; }
   font-weight: 500;
 }
 
+/* filtro por marcadores: os botoes e a lista por tras deles */
+.filtro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  background: var(--superficie);
+  border: 1px solid var(--regua);
+  border-radius: 6px;
+  padding: .5rem .6rem;
+  font-size: .8125rem;
+}
+
+.filtro .rotulo { color: var(--tinta-suave); font-weight: 600; }
+
+.filtro .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  border: 1px solid var(--regua-forte);
+  border-radius: 999px;
+  padding: .1rem .55rem;
+  background: var(--superficie);
+  color: var(--tinta);
+}
+
+/* Texto na cor da superficie, e nao branco fixo: no tema escuro o azul do
+   realce clareia, e branco sobre ele ficaria ilegivel. */
+.filtro .chip--on {
+  background: var(--enviado);
+  border-color: var(--enviado);
+  color: var(--superficie);
+  font-weight: 700;
+}
+
+.filtro .ponto {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, .25);
+}
+
+.filtro .quantos { opacity: .75; font-weight: 400; }
+
+.filtro .modo {
+  border: 1px solid var(--regua-forte);
+  border-radius: 4px;
+  padding: .1rem .45rem;
+  color: var(--tinta-suave);
+}
+
+.filtro .total { margin-left: auto; color: var(--tinta-suave); }
+
+.lista-sei {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: .6rem;
+  font-size: .8125rem;
+}
+
+.lista-sei th,
+.lista-sei td {
+  text-align: left;
+  padding: .3rem .5rem;
+  border-bottom: 1px solid var(--regua);
+  color: var(--tinta);
+}
+
+.lista-sei th { color: var(--tinta-fraca); font-weight: 600; font-size: .75rem; }
+.lista-sei .fora td { opacity: .35; text-decoration: line-through; }
+
 .tarja {
   display: inline-flex;
   align-items: center;
@@ -558,6 +629,7 @@ details > *:not(summary) { margin-top: .6rem; font-size: .9375rem; color: var(--
     <ol>
       <li><a href="#instalar">Instalar</a></li>
       <li><a href="#historico">Histórico</a></li>
+      <li><a href="#marcadores">Filtro por marcadores</a></li>
       <li><a href="#bloco">Alerta de bloco</a></li>
       <li><a href="#trajetoria">Trajetória</a></li>
       <li><a href="#unidade">Trocar unidade</a></li>
@@ -709,6 +781,48 @@ details > *:not(summary) { margin-top: .6rem; font-size: .9375rem; color: var(--
         <li>Para esvaziar a lista de vez, limpe uma segunda vez — aí a extensão pergunta se é para apagar os favoritos também.</li>
         <li>O <strong>x</strong> de um favorito <strong>sempre</strong> pede confirmação — ele fica a um pixel da estrela. Nos demais, a confirmação traz uma caixa <em>“não perguntar de novo”</em>.</li>
       </ul>
+    </section>
+
+    <section id="marcadores">
+      <div class="secao-titulo"><h2>Filtro por marcadores</h2><span class="conta">controle de processos</span></div>
+      <p>
+        O SEI mostra os marcadores um de cada vez. Aqui os que existem na lista
+        viram botões, cada um com quantos processos carrega. Escolhendo dois ou
+        mais, ficam à vista só os processos que têm <strong>todos</strong> os
+        escolhidos.
+      </p>
+
+      <div class="demo">
+        <div class="filtro">
+          <span class="rotulo">Marcadores:</span>
+          <span class="chip chip--on"><span class="ponto" style="background:#f0c419"></span>Amarelo <span class="quantos">7</span></span>
+          <span class="chip chip--on"><span class="ponto" style="background:#d13438"></span>Urgente <span class="quantos">3</span></span>
+          <span class="chip"><span class="ponto" style="background:#1e9e4a"></span>Verde <span class="quantos">5</span></span>
+          <span class="modo">com todos</span>
+          <span class="modo">limpar</span>
+          <span class="total">2 de 15 processos</span>
+        </div>
+        <table class="lista-sei">
+          <tr><th>Nº do processo</th><th>Marcadores da linha</th></tr>
+          <tr><td class="nup">0004049-11.2025.8.19.0000</td><td>Amarelo · Urgente</td></tr>
+          <tr><td class="nup">0003871-52.2025.8.19.0000</td><td>Amarelo · Urgente</td></tr>
+          <tr class="fora"><td class="nup">0003119-88.2025.8.19.0000</td><td>Amarelo</td></tr>
+          <tr class="fora"><td class="nup">0002744-27.2025.8.19.0000</td><td>Verde</td></tr>
+        </table>
+      </div>
+
+      <ul>
+        <li>As linhas riscadas são as que saem da frente. Elas continuam na lista do SEI — a extensão só esconde e mostra linha, e recarregar a tela devolve tudo.</li>
+        <li><strong>com todos</strong> só aparece a partir do segundo marcador escolhido; clicando nele, passa a bastar um deles.</li>
+        <li>A escolha atravessa a navegação e morre quando você fecha a aba.</li>
+        <li><strong>Recebidos</strong> e <strong>Gerados</strong> têm cada um a sua barra, porque são duas listas.</li>
+      </ul>
+      <p class="aviso">
+        Há instalação do SEI em que cada processo carrega <strong>um</strong>
+        marcador por unidade. Onde for esse o caso, exigir dois ao mesmo tempo
+        devolve lista vazia por construção — e é para isso que serve o botão
+        <strong>com qualquer um</strong>, ao lado.
+      </p>
     </section>
 
     <section id="bloco">
@@ -914,6 +1028,11 @@ details > *:not(summary) { margin-top: .6rem; font-size: .9375rem; color: var(--
             <tr><td>Coletar ao abrir um processo</td><td>ligado</td></tr>
             <tr><td>Perguntar antes de remover um registro</td><td>ligado</td></tr>
             <tr><td>Seu nome e login no SEI <span class="nome-opcao">(só se a detecção falhar)</span></td><td>vazio</td></tr>
+            <tr>
+              <td rowspan="2">Filtro por marcadores</td>
+              <td>Como combinar dois ou mais marcadores <span class="nome-opcao">(todos / qualquer)</span></td><td>todos</td>
+            </tr>
+            <tr><td>Manter o filtro ao navegar (até fechar a aba)</td><td>ligado</td></tr>
             <tr>
               <td rowspan="3">Alerta de bloco</td>
               <td>Consultar a cada</td><td>10 minutos</td>
