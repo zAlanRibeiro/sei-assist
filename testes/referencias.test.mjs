@@ -172,6 +172,8 @@ const GLOBAIS = new Set([
   'Symbol', 'Blob', 'CSS', 'Node', 'Event', 'CustomEvent', 'MutationObserver',
   'Intl', 'parseInt', 'parseFloat', 'isNaN', 'structuredClone', 'DOMParser', 'FormData',
   'AbortController', 'queueMicrotask', 'fetch',
+  // O nome do arquivo do marcador chega com %20 no caminho.
+  'decodeURIComponent', 'encodeURIComponent',
 ]);
 
 /** Nomes ligados a alguma coisa no arquivo. Generoso de propósito. */

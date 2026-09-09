@@ -128,6 +128,68 @@ test('o mesmo marcador dentro do link e da imagem conta uma vez', () => {
   assert.equal(marcadoresDaLinha(tr).length, 1);
 });
 
+/* -------------------------------------------------- o que a tela mostrou */
+
+/**
+ * Estes quatro nasceram de uma captura de tela do SEI de Niterói: a barra
+ * apareceu com QUATRO botões para DOIS marcadores —
+ *
+ *   "/ Organização Interna" 4   "azul marinho.svg?25" 4
+ *   "/ Nome Julgador"       2   "amarelo.svg?25"      2
+ *
+ * — porque cada marcador é desenhado por dois elementos, o link com o nome e
+ * a imagem com a cor, e os dois viravam botão.
+ */
+test('o "?25" anti-cache não entra no nome do botão', () => {
+  const tr = linha(celulaComIcone({ src: '/infra_css/svg/marcador/amarelo.svg?25' }));
+  assert.deepEqual(
+    marcadoresDaLinha(tr).map((m) => m.nome),
+    ['amarelo'],
+  );
+});
+
+test('nome de arquivo com % não derruba a leitura da linha', () => {
+  // decodeURIComponent('100%') levanta URIError. Solto, ele derrubaria a
+  // leitura da linha inteira — e a linha some da barra sem explicação.
+  const tr = linha(celulaComIcone({ src: '/svg/marcador/100%.svg?25' }));
+  assert.deepEqual(
+    marcadoresDaLinha(tr).map((m) => m.nome),
+    ['100%'],
+  );
+});
+
+test('a barra que sobra do rótulo sai do nome', () => {
+  assert.equal(nomeDoMarcador('Marcador / Organização Interna').nome, 'Organização Interna');
+  assert.equal(nomeDoMarcador('Marcador: / Nome Julgador').nome, 'Nome Julgador');
+});
+
+test('o link com o nome e a imagem com a cor são um marcador só', () => {
+  const link = elemento('a', { href: '#', title: 'Marcador / Organização Interna' }, [
+    elemento('img', { src: '/infra_css/svg/marcador/azul marinho.svg?25' }),
+  ]);
+  const tr = linha(elemento('td', {}, [link]));
+
+  const achados = marcadoresDaLinha(tr);
+  assert.equal(achados.length, 1, 'um marcador, não dois botões');
+  assert.equal(achados[0].nome, 'Organização Interna', 'o nome vem do texto do SEI');
+  assert.ok(achados[0].cor, 'e a cor vem da imagem, que é quem sabe dela');
+});
+
+test('ícone anônimo ao lado de marcador nomeado não vira botão próprio', () => {
+  // A mesma dupla, mas lado a lado em vez de aninhada: o nome de arquivo é
+  // último recurso, e a linha já nomeou o que tinha para nomear.
+  const tr = linha(
+    elemento('td', {}, [
+      elemento('img', { src: '/infra_css/svg/marcador/azul marinho.svg?25' }),
+      elemento('span', { title: 'Marcador / Organização Interna' }),
+    ]),
+  );
+  assert.deepEqual(
+    marcadoresDaLinha(tr).map((m) => m.nome),
+    ['Organização Interna'],
+  );
+});
+
 test('dois marcadores diferentes na mesma linha são dois', () => {
   const tr = linha(
     celulaComIcone({ src: '/svg/marcador.svg', title: 'Marcador: Azul' }),

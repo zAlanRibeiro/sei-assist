@@ -57,6 +57,15 @@ const PISTA = /marcador/;
 const ROTULO = /^marcador(?:es)?\s*[:–-]?\s*/i;
 
 /**
+ * Pontuação que sobra depois de tirar o rótulo.
+ *
+ * CONFIRMADO em leste.sei.rj.gov.br: o title vem "Marcador / Organização
+ * Interna". Tirado o rótulo, sobrava a barra, e o botão do filtro se chamava
+ * "/ Organização Interna".
+ */
+const SOBRA = /^[\s/|·•:,–-]+/;
+
+/**
  * Cores dos marcadores do SEI, para pintar o botão do filtro.
  *
  * Puramente cosmético: marcador sem cor conhecida vira botão neutro, e o
@@ -100,7 +109,7 @@ export function nomeDoMarcador(bruto) {
   const inteiro = String(bruto || '');
   const [primeiraLinha, ...resto] = inteiro.split(/[\r\n]+/);
 
-  const semRotulo = primeiraLinha.replace(ROTULO, '').trim();
+  const semRotulo = primeiraLinha.replace(ROTULO, '').replace(SOBRA, '').trim();
   const corte = semRotulo.split(/\s[-–]\s/);
 
   const nome = corte[0].replace(/\s+/g, ' ').trim();
@@ -152,42 +161,116 @@ export function corDoMarcador(no, nome) {
 
 /* ----------------------------------------------------------------- linhas */
 
+/** Um dos elementos é ancestral do outro? */
+function encaixa(a, b) {
+  if (a === b) return true;
+  for (const [pai, filho] of [
+    [a, b],
+    [b, a],
+  ]) {
+    let atual = filho?.parentElement;
+    while (atual) {
+      if (atual === pai) return true;
+      atual = atual.parentElement;
+    }
+  }
+  return false;
+}
+
+/**
+ * Duas leituras do mesmo marcador viram uma só.
+ *
+ * O nome do texto manda sobre o nome do arquivo, e a cor entra de onde
+ * houver: é assim que "Organização Interna" fica com a bolinha azul que só o
+ * <img> sabia dar.
+ */
+function fundir(alvo, extra) {
+  if (!alvo.batizado && extra.batizado) {
+    alvo.nome = extra.nome;
+    alvo.chave = extra.chave;
+    alvo.batizado = true;
+  }
+  if (!alvo.detalhe && extra.detalhe) alvo.detalhe = extra.detalhe;
+  if (!alvo.cor && extra.cor) alvo.cor = extra.cor;
+}
+
 /**
  * Os marcadores de uma linha da lista.
  *
- * Devolve sempre uma lista, e sem repetição: o SEI desenha o mesmo marcador
- * duas vezes quando o ícone vem dentro de um link com o mesmo title, e contar
- * dois faria a linha parecer ter marcadores que não tem.
+ * O SEI desenha CADA marcador com dois elementos: o link, que traz o nome no
+ * title, e a imagem dentro dele, que traz o arquivo da cor. Lidos soltos, um
+ * marcador vira dois botões — foi o que apareceu na tela como
+ * "Organização Interna" ao lado de "azul marinho.svg?25".
+ *
+ * Duas regras desfazem isso, nesta ordem:
+ *
+ *   1. elemento contido em outro já aceito é o MESMO marcador (o caso do
+ *      <a><img></a>, que é exato: não depende de adivinhar nada);
+ *   2. sobrando leitura sem nome depois disso, ela é descartada se a linha
+ *      já nomeou algum marcador. O nome de arquivo é último recurso: onde o
+ *      SEI escreveu os nomes, um ícone anônimo é outra pintura de um deles,
+ *      não um marcador a mais.
+ *
+ * A regra 2 tem preço: uma linha que misture marcador nomeado com marcador
+ * sem title nenhum perderia o segundo. Nunca vi o SEI nomear metade — e o
+ * mal menor é esse, não encher a barra de botões que não filtram nada.
  */
 export function marcadoresDaLinha(linha) {
-  const achados = new Map();
+  const aceitos = [];
 
   for (const no of qsa(LISTA.alvos, linha)) {
     const texto = textoDoAlvo(no);
     const falaEmMarcador = Boolean(texto) && PISTA.test(norm(texto));
-    const pista = temPista(no);
-    if (!falaEmMarcador && !pista) continue;
+    if (!falaEmMarcador && !temPista(no)) continue;
 
-    // Pista sem texto nenhum: sobra o nome do arquivo para dar nome. Melhor
-    // um botão "amarelo" do que engolir o marcador em silêncio.
-    const { nome, detalhe } = nomeDoMarcador(texto || nomeDoArquivo(no));
+    const doTexto = texto ? nomeDoMarcador(texto) : { nome: '', detalhe: '' };
+    const nome = doTexto.nome || nomeDoArquivo(no);
     if (!nome) continue;
 
-    const chave = norm(nome);
-    if (!achados.has(chave)) {
-      achados.set(chave, { nome, chave, detalhe, cor: corDoMarcador(no, nome) });
-    }
+    const achado = {
+      no,
+      nome,
+      chave: norm(nome),
+      detalhe: doTexto.detalhe,
+      cor: corDoMarcador(no, nome),
+      batizado: Boolean(doTexto.nome),
+    };
+
+    const irmao = aceitos.find((a) => encaixa(a.no, no) || a.chave === achado.chave);
+    if (irmao) fundir(irmao, achado);
+    else aceitos.push(achado);
   }
 
-  return Array.from(achados.values());
+  const nomeados = aceitos.filter((m) => m.batizado);
+  const lista = nomeados.length ? nomeados : aceitos;
+
+  return lista.map(({ nome, chave, detalhe, cor }) => ({ nome, chave, detalhe, cor }));
 }
 
-/** "…/svg/marcador_amarelo.svg" -> "amarelo". */
+/** "…/svg/marcador_amarelo.svg?25" -> "amarelo". */
 function nomeDoArquivo(no) {
   const src = no?.getAttribute?.('src') || no?.getAttribute?.('href') || '';
-  const arquivo = String(src).split('/').pop() || '';
+
+  // O "?25" no fim é anti-cache do SEI, e vinha junto no nome do botão.
+  // Cortar a consulta ANTES da extensão: com ela no caminho, o ".svg?25" não
+  // casava como extensão e sobrava inteiro.
+  const semConsulta = String(src).split(/[?#]/)[0];
+  const arquivo = semConsulta.split('/').pop() || '';
   const semExtensao = arquivo.replace(/\.[a-z0-9]+$/i, '');
-  return semExtensao.replace(/^marcador[_-]?/i, '').replace(/[_-]+/g, ' ').trim();
+
+  return legivel(semExtensao)
+    .replace(/^marcador[_-]?/i, '')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+}
+
+/** "azul%20marinho" -> "azul marinho", sem explodir em URL malformada. */
+function legivel(valor) {
+  try {
+    return decodeURIComponent(valor);
+  } catch {
+    return valor;
+  }
 }
 
 /**
