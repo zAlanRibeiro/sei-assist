@@ -3,6 +3,28 @@
 Roteiro do que a loja pede e do que responder. O pacote sai de
 `npm run empacotar`.
 
+## Onde se publica
+
+O envio é pelo **Chrome Web Store Developer Dashboard**:
+
+> https://chrome.google.com/webstore/devconsole
+
+Entre com a conta Google que vai ser a **dona** da extensão — é ela que aparece
+como editora, e trocar depois dá trabalho. Na primeira vez a loja cobra uma taxa
+de **US$ 5**, uma só vez por conta, no cartão. Enquanto ela não é paga, o botão
+de enviar não aparece.
+
+Lá dentro: **Novo item → fazer upload do arquivo ZIP**. O arquivo é o
+`sei-assist-<versão>.zip` que o `npm run empacotar` deixa na raiz do projeto —
+ele não vai para o Git de propósito (está no `.gitignore`), porque é resultado,
+não fonte.
+
+O upload só destrava o formulário. A extensão fica em rascunho até você
+preencher a ficha abaixo e clicar em **Enviar para revisão**.
+
+Para o **Edge** o caminho é outro, aceita o mesmo zip e não cobra taxa:
+<https://partner.microsoft.com/dashboard/microsoftedge>.
+
 ## Antes de enviar
 
 - [ ] `npm run check` passando
@@ -30,8 +52,8 @@ Isso é aceito. Um Gist público também serve.
 
 **Descrição curta** (132 caracteres):
 
-> Histórico do que você assinou e enviou no SEI, alerta de bloco de assinatura,
-> rascunho no editor e cópia rápida do processo.
+> Histórico do que você assinou e enviou no SEI, filtro da lista por
+> marcadores, alerta de bloco de assinatura e rascunho no editor.
 
 **Categoria:** Ferramentas (Workflow & Planning)
 
