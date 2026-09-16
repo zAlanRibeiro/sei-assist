@@ -24,6 +24,7 @@
  */
 import { el, qsa } from '../../core/dom.js';
 import { comContexto } from '../../core/runtime.js';
+import { cliqueSeguro } from '../../core/guard.js';
 import { toast } from '../../core/ui.js';
 import { log } from '../../core/log.js';
 import { acharUnidadeNaBarra, lerUnidades, TROCA } from './seletores.js';
@@ -310,8 +311,13 @@ function lerEscolha() {
  *
  * Clica no MESMO controle que a pessoa clicaria. Não submete formulário nem
  * monta requisição: quem decide o que fazer com o clique é o SEI.
+ *
+ * O clique passa por cliqueSeguro() e não por .click() direto. Marcar unidade
+ * não é ação crítica, então na prática é o mesmo clique — mas é o alvo que
+ * decide isso, não nós: ele vem de lerUnidades(), ou seja, do HTML do SEI. Se
+ * um dia essa tela devolver outra coisa, a trava barra.
  */
-function aplicarNaTela(sigla) {
+async function aplicarNaTela(sigla) {
   const alvo = lerUnidades(document).find((u) => u.sigla === sigla);
   if (!alvo || !alvo.idDoCampo) return false;
 
@@ -319,7 +325,7 @@ function aplicarNaTela(sigla) {
     document.getElementById(alvo.idDoCampo) || qsa(TROCA.rotuloDoItem(alvo.idDoCampo))[0];
   if (!clicavel) return false;
 
-  clicavel.click();
+  if (!(await cliqueSeguro(clicavel, { motivo: `marcar a unidade ${sigla}` }))) return false;
 
   // Se o SEI não reagir, a pessoa precisa saber que a escolha está na tela
   // esperando por ela — em vez de achar que a extensão travou.
@@ -382,8 +388,8 @@ export default {
       const pendente = lerEscolha();
       if (pendente) {
         let tentativas = 0;
-        const tentar = () => {
-          if (!vivo || aplicarNaTela(pendente) || (tentativas += 1) > 10) return;
+        const tentar = async () => {
+          if (!vivo || (await aplicarNaTela(pendente)) || (tentativas += 1) > 10) return;
           setTimeout(tentar, 300);
         };
         tentar();
@@ -401,9 +407,9 @@ export default {
      * pegaria o próprio clique que acabamos de disparar.
      */
     let deixarPassar = false;
-    const irParaTela = () => {
+    const irParaTela = async () => {
       deixarPassar = true;
-      ancora.click();
+      await cliqueSeguro(ancora, { motivo: 'abrir a tela de troca de unidade' });
       setTimeout(() => {
         deixarPassar = false;
       }, 0);

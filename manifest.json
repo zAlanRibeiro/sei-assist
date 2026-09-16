@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SEI Assist",
   "version": "1.0.0",
-  "description": "Histórico do que você assinou e enviou, alerta de bloco de assinatura, rascunho no editor e cópia rápida do número do processo. Tudo local.",
+  "description": "Histórico do que você assinou e enviou, filtro da lista por marcadores, alerta de bloco de assinatura, rascunho no editor e troca rápida de unidade. Tudo local.",
   "minimum_chrome_version": "102",
   "icons": {
     "16": "assets/icons/icon16.png",

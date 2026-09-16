@@ -15,15 +15,24 @@ requisição que aconteceria se você abrisse aquela tela.
 
 ## O que fica guardado
 
-Tudo em `chrome.storage.local` — o armazenamento local da extensão, que **não**
-sincroniza entre dispositivos.
+Quase tudo em `chrome.storage.local` — o armazenamento local da extensão, que
+**não** sincroniza entre dispositivos. Duas coisas ficam em `sessionStorage`,
+que é ainda mais curto: morre quando a aba fecha.
 
-| O quê | Para quê | Por quanto tempo |
-| --- | --- | --- |
-| Histórico de atos seus (assinou, enviou, criou) | Montar o painel de histórico | Até você apagar; favoritos ficam até você desmarcar |
-| Rascunho do editor (nunca de documento restrito) | Recuperar texto se a sessão do SEI expirar | 3 dias, ou até salvar o documento |
-| Estado do bloco de assinatura | Saber o que é novidade desde a última olhada | Substituído a cada consulta |
-| Preferências | Atalhos, intervalos, o que está ligado | Até você desinstalar |
+| O quê | Onde | Para quê | Por quanto tempo |
+| --- | --- | --- | --- |
+| Histórico de atos seus (assinou, enviou, criou) | local | Montar o painel de histórico | Até você apagar; favoritos ficam até você desmarcar |
+| Documentos seus ainda sem assinatura conhecida | local | Responder "o que criei e ficou pendente" | Até a assinatura aparecer, ou até você apagar |
+| Rascunho do editor (nunca de documento restrito) | local | Recuperar texto se a sessão do SEI expirar | 3 dias, ou até salvar o documento |
+| Estado do bloco de assinatura | local | Saber o que é novidade desde a última olhada | Substituído a cada consulta |
+| Siglas e nomes das **suas** unidades | local | Abrir a lista de troca na barra sem passar pela tela | Até você passar de novo pela tela de troca |
+| Unidades em que um processo está aberto | local | Escrever a linha de trajetória | 30 minutos |
+| Preferências | local | Atalhos, intervalos, o que está ligado | Até você desinstalar |
+| Marcadores escolhidos no filtro da lista | sessão | Manter o filtro ao navegar entre telas | Até fechar a aba |
+| Unidade que você acabou de escolher na barra | sessão | Marcá-la na tela de troca do SEI | 30 segundos, e some ao ser usada |
+
+Nada nessa lista é conteúdo de processo, com a única exceção do rascunho do
+editor — que tem seção própria abaixo.
 
 ### O histórico
 
@@ -111,7 +120,11 @@ tela, organiza informação e preenche campos quando você pede.
 
 Existe uma trava explícita no código (`src/content/core/guard.js`) que bloqueia
 qualquer clique automático em botões de assinar, enviar, tramitar, concluir ou
-excluir. Isso é verificado por teste.
+excluir.
+
+Dois testes cobram isso, e não a leitura de quem revisa: um reprova se qualquer
+arquivo clicar direto, sem passar pela trava; o outro reprova se a trava deixar
+de ser usada. Estão em `testes/privacidade.test.mjs`.
 
 ## Código aberto
 

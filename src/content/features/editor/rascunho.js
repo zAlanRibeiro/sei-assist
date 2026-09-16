@@ -182,8 +182,3 @@ export async function descartar(idDocumento) {
   log.debug(`rascunho de ${chave} descartado`);
   return escrever(rascunhos);
 }
-
-/** Apaga tudo. Existe para a tela de opcoes. */
-export async function limparTudo() {
-  return escrever({});
-}

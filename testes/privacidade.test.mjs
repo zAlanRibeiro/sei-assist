@@ -208,6 +208,82 @@ test('a captura é passiva: não clica, não submete, não bloqueia o SEI', () =
   }
 });
 
+/**
+ * A trava só vale se TUDO passar por ela.
+ *
+ * O README promete que nenhum clique automático escapa de core/guard.js. Isso
+ * era promessa de texto: guard.js não era importado por ninguém, e havia dois
+ * `.click()` em elemento do SEI passando por fora. Uma trava que depende de
+ * alguém lembrar de usá-la não é trava.
+ *
+ * A regra estática é mais forte que a de execução, porque cobre também o
+ * código que ainda não foi escrito.
+ */
+const CLIQUE_DIRETO_PERMITIDO = [
+  // A própria trava: é ela quem clica, depois de decidir.
+  'src/content/core/guard.js',
+  // O <a download> do CSV é elemento NOSSO, criado três linhas acima e
+  // removido logo depois. Não é botão do SEI, e não há o que a trava julgue.
+  'src/content/features/historico/painel.js',
+];
+
+test('nenhum clique no SEI escapa da trava', () => {
+  const fora = fontes
+    .filter((f) => !CLIQUE_DIRETO_PERMITIDO.includes(f.caminho))
+    .filter((f) => /\.click\s*\(/.test(semComentarios(f.texto)))
+    .map((f) => f.caminho);
+
+  assert.deepEqual(fora, [], 'estes arquivos clicam direto: use cliqueSeguro() de core/guard.js');
+});
+
+test('a trava continua sendo usada de verdade', () => {
+  // Sem isto, apagar a única chamada devolveria guard.js ao estado de enfeite
+  // — e o teste acima continuaria passando, porque ninguém mais clicaria.
+  const usam = fontes.filter((f) => semComentarios(f.texto).includes('cliqueSeguro('));
+  const emProducao = usam.filter((f) => f.caminho !== 'src/content/core/guard.js');
+
+  assert.ok(emProducao.length > 0, 'alguma feature precisa acionar cliqueSeguro()');
+});
+
+/**
+ * A política de privacidade é a promessa que vai para a Chrome Web Store.
+ *
+ * Ela envelheceu em silêncio: a extensão passou a guardar quatro coisas novas
+ * (unidades, "aberto em", pendentes, filtro de marcadores) e o documento
+ * continuou descrevendo quatro itens. Ninguém percebeu porque nada cobrava.
+ *
+ * Isto é um arame: guardar algo novo quebra o teste, e quem quebrar tem de
+ * abrir docs/privacidade.md e decidir o que escrever lá. Não verifica o TEXTO
+ * — verifica que a conversa aconteceu.
+ */
+const CHAVES_DECLARADAS = [
+  'seix:abertas',
+  'seix:atos-pendentes',
+  'seix:blocos',
+  'seix:config',
+  'seix:criacao-pendente',
+  'seix:debug',
+  'seix:documento-pendente',
+  'seix:historico-assinaturas',
+  'seix:marcadores',
+  'seix:rascunhos',
+  'seix:trocar-unidade',
+  'seix:unidades',
+];
+
+test('guardar algo novo obriga a revisar a política de privacidade', () => {
+  const achadas = new Set();
+  for (const f of fontes) {
+    for (const m of f.texto.matchAll(/'(seix:[a-z:-]+)'/g)) achadas.add(m[1]);
+  }
+
+  assert.deepEqual(
+    [...achadas].sort(),
+    CHAVES_DECLARADAS,
+    'mudou o que a extensão guarda: atualize docs/privacidade.md e esta lista',
+  );
+});
+
 test('o inspetor não vaza conteúdo de processo', () => {
   const esqueleto = fontes.find((f) => f.caminho.endsWith('inspetor/esqueleto.js'));
   assert.ok(esqueleto, 'esqueleto.js não encontrado');

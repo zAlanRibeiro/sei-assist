@@ -100,12 +100,6 @@ export function unidadeAtual(doc = document) {
   return texto && texto.length <= 60 ? texto : null;
 }
 
-/** Compara nomes ignorando acento e caixa. */
-export function mesmoUsuario(a, b) {
-  if (!a || !b) return false;
-  return norm(a) === norm(b);
-}
-
 /**
  * Todas as identidades conhecidas do dono, prontas para comparacao.
  *

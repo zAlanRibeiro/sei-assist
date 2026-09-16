@@ -246,7 +246,12 @@ test('a navegação sai do link do SEI, não de location.href', () => {
     false,
     'navegar por conta própria exige montar URL — e URL montada derruba a sessão',
   );
-  assert.ok(FONTE.includes('ancora.click()'), 'a navegação tem de acionar o link do SEI');
+  // Antes era `ancora.click()` cru. Agora passa pela trava de core/guard.js —
+  // continua sendo o link do SEI que é acionado, só que julgado antes.
+  assert.ok(
+    FONTE.includes('cliqueSeguro(ancora'),
+    'a navegação tem de acionar o link do SEI, pela trava',
+  );
 });
 
 /* ------------------------------------------------------- o aviso da captura */

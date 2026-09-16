@@ -81,11 +81,3 @@ export function registrarAtalho(combo, handler, opcoes = {}) {
   log.debug(`atalho registrado: ${combo}`, opcoes.descricao || '');
   return () => registrados.delete(chave);
 }
-
-/** Lista os atalhos ativos neste frame (usado pela tela de ajuda/opcoes). */
-export function atalhosAtivos() {
-  return Array.from(registrados.entries()).map(([combo, r]) => ({
-    combo,
-    descricao: r.opcoes.descricao || '',
-  }));
-}

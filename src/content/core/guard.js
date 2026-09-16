@@ -80,8 +80,3 @@ export async function cliqueSeguro(elemento, { motivo = '', permitirCritico = fa
   elemento.click();
   return true;
 }
-
-/** Igual a cliqueSeguro, mas para navegacao por URL. */
-export function navegacaoPermitida(url) {
-  return !ACOES_CRITICAS.some((acao) => String(url).includes(`acao=${acao}`));
-}

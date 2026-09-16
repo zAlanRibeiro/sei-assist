@@ -113,12 +113,3 @@ export async function reconcileFeatures(ctx) {
 export function desativarTodas() {
   for (const id of Array.from(estado.keys())) desativar(id);
 }
-
-/** Snapshot do estado atual (usado para depuracao). */
-export function statusFeatures() {
-  return Array.from(estado.values()).map(({ feature, ativa }) => ({
-    id: feature.id,
-    nome: feature.nome,
-    ativa,
-  }));
-}

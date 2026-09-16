@@ -61,101 +61,6 @@ export function textoCasa(texto, alvo, { exato = false } = {}) {
   return a.includes(b) || semEspacos(a).includes(semEspacos(b));
 }
 
-/**
- * Acha elementos pelo texto visivel.
- * @param {string} seletor  ex.: 'a, button, input[type=button]'
- * @param {string|RegExp} texto
- */
-export function acharPorTexto(seletor, texto, { root = document, exato = false } = {}) {
-  return qsa(seletor, root).filter((el) => {
-    const t = norm(textoDe(el));
-    if (texto instanceof RegExp) return texto.test(t) || texto.test(semEspacos(t));
-    return textoCasa(t, texto, { exato });
-  });
-}
-
-/**
- * Botao da barra de comandos do SEI (topo e rodape da tela).
- * O SEI usa <a>, <button>, <input type=button> e <img title=...> de forma
- * inconsistente entre versoes — por isso varremos todos.
- */
-export function acharBotaoComando(texto, root = document) {
-  const barras = qsa(
-    '#divComandos, #divInfraBarraComandosSuperior, #divInfraBarraComandosInferior, ' +
-      '#divArvoreAcoes, .infraBarraComandos, .infraAreaTelaD',
-    root,
-  );
-  const escopos = barras.length ? barras : [root];
-  for (const escopo of escopos) {
-    const [achado] = acharPorTexto(
-      'a, button, input[type=button], input[type=submit], img[title]',
-      texto,
-      { root: escopo },
-    );
-    if (achado) return achado;
-  }
-  // ultimo recurso: pagina inteira
-  return acharPorTexto('a, button, input[type=button], input[type=submit], img[title]', texto, {
-    root,
-  })[0] || null;
-}
-
-/**
- * Acha um campo de formulario pelo texto do rotulo.
- * Cobre <label for>, label envolvendo o campo, e o padrao do SEI de rotulo
- * em uma <td>/<div> imediatamente antes do campo.
- */
-export function acharCampoPorRotulo(rotulo, root = document) {
-  const alvo = norm(rotulo);
-
-  for (const label of qsa('label', root)) {
-    if (!norm(label.textContent).includes(alvo)) continue;
-    const forId = label.getAttribute('for');
-    if (forId) {
-      const campo = root.getElementById?.(forId) || qs(`#${CSS.escape(forId)}`, root);
-      if (campo) return campo;
-    }
-    const dentro = qs('input, select, textarea', label);
-    if (dentro) return dentro;
-    const irmao = label.parentElement?.querySelector('input, select, textarea');
-    if (irmao) return irmao;
-  }
-
-  // padrao SEI: <td>Rotulo</td><td><input ...></td>
-  for (const celula of qsa('td, th, div, span', root)) {
-    if (celula.children.length > 2) continue;
-    if (!norm(celula.textContent).startsWith(alvo)) continue;
-    const campo =
-      celula.nextElementSibling?.querySelector?.('input, select, textarea') ||
-      celula.parentElement?.querySelector?.('input, select, textarea');
-    if (campo) return campo;
-  }
-  return null;
-}
-
-/** Espera um elemento aparecer (o SEI monta muita coisa depois do load). */
-export function esperarElemento(seletor, { root = document, timeout = 10000 } = {}) {
-  const achar = () => (typeof seletor === 'function' ? seletor(root) : qs(seletor, root));
-  const ja = achar();
-  if (ja) return Promise.resolve(ja);
-
-  return new Promise((resolve, reject) => {
-    const obs = new MutationObserver(() => {
-      const el = achar();
-      if (el) {
-        obs.disconnect();
-        clearTimeout(timer);
-        resolve(el);
-      }
-    });
-    const timer = setTimeout(() => {
-      obs.disconnect();
-      reject(new Error(`timeout esperando: ${seletor}`));
-    }, timeout);
-    obs.observe(root.documentElement || root, { childList: true, subtree: true });
-  });
-}
-
 /** Observa mudancas no DOM com debounce. Retorna funcao para parar. */
 export function observar(root, callback, { debounce = 100 } = {}) {
   let timer = null;
@@ -211,32 +116,6 @@ export function el(tag, props = {}, filhos = []) {
     node.append(filho instanceof Node ? filho : document.createTextNode(String(filho)));
   }
   return node;
-}
-
-/**
- * Dispara os eventos que o SEI escuta ao preencher um campo por script.
- * Sem isso, validacoes e autocompletes do sistema nao percebem a mudanca.
- */
-export function preencher(campo, valor) {
-  if (!campo) return false;
-  campo.focus?.();
-  campo.value = valor;
-  for (const tipo of ['input', 'change', 'keyup', 'blur']) {
-    campo.dispatchEvent(new Event(tipo, { bubbles: true }));
-  }
-  return true;
-}
-
-/** Acessa outro frame do SEI a partir do frame do topo (mesma origem). */
-export function frameDoc(nome) {
-  try {
-    const frame = window.top.document.querySelector(
-      `iframe[name="${nome}"], frame[name="${nome}"]`,
-    );
-    return frame?.contentDocument || null;
-  } catch {
-    return null; // cross-origin
-  }
 }
 
 /**

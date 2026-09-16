@@ -21,17 +21,6 @@ const MESES = [
   'dezembro',
 ];
 
-/**
- * Formatos disponiveis.
- *
- * `extenso` e o do fecho de oficio e memorando; `curta` serve para o corpo do
- * texto, onde a data por extenso pesa.
- */
-export const FORMATOS = {
-  extenso: 'Cidade, 27 de agosto de 2026',
-  curta: '27/08/2026',
-};
-
 const doisDigitos = (n) => String(n).padStart(2, '0');
 
 /**

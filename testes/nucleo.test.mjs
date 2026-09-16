@@ -11,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { elegivel } from '../src/content/core/registry.js';
+import { ehCritico } from '../src/content/core/guard.js';
 import { estadoDaFeature } from '../src/content/core/settings.js';
 import { norm } from '../src/content/core/dom.js';
 import features from '../src/content/features/index.js';
@@ -73,6 +74,35 @@ test('catalogo: features validas e sem efeito colateral no import', () => {
     assert.ok(f.nome, `${f.id}: falta nome`);
     assert.ok(f.descricao, `${f.id}: falta descricao`);
   }
+});
+
+/* ----------------------------------------------------------------- trava */
+
+/**
+ * A restrição central do projeto, finalmente como teste.
+ *
+ * guard.js existia desde o começo e nunca teve um. Estas três linhas são o que
+ * separa "a extensão não assina nada" de "a extensão diz que não assina nada".
+ */
+test('a trava reconhece o que é irreversível', () => {
+  for (const rotulo of ['Assinar Documento', 'Enviar Processo', 'Concluir Processo', 'Excluir']) {
+    assert.equal(ehCritico(rotulo), true, `"${rotulo}" tem de ser crítico`);
+  }
+});
+
+test('a trava deixa passar o que é só navegação', () => {
+  for (const rotulo of ['NIT/NITTRANS/DIVEST', 'Consultar Andamento', 'Pesquisar']) {
+    assert.equal(ehCritico(rotulo), false, `"${rotulo}" não é crítico`);
+  }
+});
+
+test('a trava olha o destino do link, não só o texto', () => {
+  // O caso perigoso de verdade: rótulo inocente, ação crítica na URL.
+  const link = {
+    textContent: 'Prosseguir',
+    getAttribute: (n) => (n === 'href' ? '/sei/controlador.php?acao=documento_assinar' : null),
+  };
+  assert.equal(ehCritico(link), true);
 });
 
 /* ---------------------------------------------------------------- loader */
